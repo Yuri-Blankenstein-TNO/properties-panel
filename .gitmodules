@@ -1,0 +1,3 @@
+[submodule "codemirror-languageserver"]
+	path = codemirror-languageserver
+	url = https://github.com/Yuri-Blankenstein-TNO/codemirror-languageserver.git

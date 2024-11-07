@@ -38,8 +38,12 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "codemirror-languageserver": "./codemirror-languageserver",
     "@bpmn-io/feel-editor": "^1.9.0",
+    "@codemirror/language": "^6.10.2",
+    "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.28.1",
+    "@open-rpc/client-js": "^1.8.1",
     "classnames": "^2.3.1",
     "feelers": "^1.4.0",
     "focus-trap": "^7.5.2",
