@@ -10,6 +10,11 @@ export {
   FeelToggleSwitchEntry,
   isEdited as isFeelEntryEdited
 } from './FEEL';
+export {
+  default as LspEntry,
+  LspTextAreaEntry,
+  isEdited as isLspEntryEdited
+} from './LSP';
 export { default as TemplatingEntry, isEdited as isTemplatingEntryEdited } from './templating';
 export { default as ListEntry } from './List';
 export { default as NumberFieldEntry, isEdited as isNumberFieldEntryEdited } from './NumberField';

@@ -29,6 +29,7 @@ import {
 } from './context';
 
 import { FeelPopupRoot } from './components/entries/FEEL';
+import { LspPopupRoot } from './components/entries/LSP';
 
 import { useEvent } from './hooks';
 
@@ -132,6 +133,8 @@ export default function PropertiesPanel(props) {
     tooltipConfig,
     tooltipLoaded,
     feelPopupContainer,
+    lspPopupContainer,
+    getLspPopupLinks,
     eventBus
   } = props;
 
@@ -240,33 +243,39 @@ export default function PropertiesPanel(props) {
           <TooltipContext.Provider value={ tooltipContext }>
             <LayoutContext.Provider value={ layoutContext }>
               <EventContext.Provider value={ eventContext }>
-                <FeelPopupRoot
+                <LspPopupRoot
                   element={ element }
                   eventBus={ eventBus }
-                  popupContainer={ feelPopupContainer }>
-                  <div class="bio-properties-panel">
-                    <Header
-                      element={ element }
-                      headerProvider={ headerProvider } />
-                    <div class="bio-properties-panel-scroll-container">
-                      {
-                        groups.map(group => {
-                          const {
-                            component: Component = Group,
-                            id
-                          } = group;
+                  popupContainer={ lspPopupContainer }
+                  getPopupLinks={ getLspPopupLinks }>
+                  <FeelPopupRoot
+                    element={ element }
+                    eventBus={ eventBus }
+                    popupContainer={ feelPopupContainer }>
+                    <div class="bio-properties-panel">
+                      <Header
+                        element={ element }
+                        headerProvider={ headerProvider } />
+                      <div class="bio-properties-panel-scroll-container">
+                        {
+                          groups.map(group => {
+                            const {
+                              component: Component = Group,
+                              id
+                            } = group;
 
-                          return (
-                            <Component
-                              { ...group }
-                              key={ id }
-                              element={ element } />
-                          );
-                        })
-                      }
+                            return (
+                              <Component
+                                { ...group }
+                                key={ id }
+                                element={ element } />
+                            );
+                          })
+                        }
+                      </div>
                     </div>
-                  </div>
-                </FeelPopupRoot>
+                  </FeelPopupRoot>
+                </LspPopupRoot>
               </EventContext.Provider>
             </LayoutContext.Provider>
           </TooltipContext.Provider>
