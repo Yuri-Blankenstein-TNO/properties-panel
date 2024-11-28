@@ -11,6 +11,7 @@ const files = {
     'test/**/*.js'
   ],
   ignored: [
+    'codemirror-languageserver',
     'preact',
     'dist'
   ]

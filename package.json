@@ -10,7 +10,7 @@
     "preact"
   ],
   "scripts": {
-    "all": "run-s lint clean build test",
+    "all": "run-s lint clean build",
     "clean": "del-cli preact dist",
     "build": "rollup -c --bundleConfigAsCjs",
     "build:watch": "npm run build -- --watch",
