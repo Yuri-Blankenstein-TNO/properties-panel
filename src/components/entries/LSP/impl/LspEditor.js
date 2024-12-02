@@ -6,6 +6,8 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { setDiagnosticsEffect } from '@codemirror/lint';
 import { WebSocketTransport } from '@open-rpc/client-js';
+import { isFunction } from 'min-dash';
+import WS from "isomorphic-ws";
 
 import theme from './theme';
 
@@ -45,6 +47,7 @@ export default class LspEditor {
     onChange = () => { },
     onKeyDown = () => { },
     onLint = () => {},
+    onConnectionError,
     placeholder = '',
     readOnly = false,
     value = '',
@@ -96,6 +99,16 @@ export default class LspEditor {
         return tooltipContainer.getBoundingClientRect();
       }
     }) : [];
+
+    if (isFunction(onConnectionError)) {
+      const ws = new WS(serverUri);
+      ws.addEventListener('open', (event) => {
+        event.target.close();
+      });
+      ws.addEventListener('error', (event) => {
+        onConnectionError(`WebSocket connection to '${serverUri}' failed.`);
+      });
+    }
 
     this._client = new LanguageServerClient({
       transport: new WebSocketTransport(serverUri),
