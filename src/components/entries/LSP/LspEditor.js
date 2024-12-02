@@ -58,6 +58,7 @@ const CodeEditor = forwardRef((props, ref) => {
     onLspToggle = noop,
     onLint = noop,
     onPopupOpen = noop,
+    onConnectionError,
     placeholder,
     popupOpen,
     disabled,
@@ -102,6 +103,7 @@ const CodeEditor = forwardRef((props, ref) => {
       onChange: handleInput,
       onKeyDown: onKeyDown,
       onLint: onLint,
+      onConnectionError: onConnectionError,
       placeholder: placeholder,
       tooltipContainer: tooltipContainer,
       value: localValue,
@@ -171,11 +173,13 @@ const CodeEditor = forwardRef((props, ref) => {
       ref={ inputRef }
       onClick={ handleClick }
     ></div>
-    <button
-      type="button"
-      title="Open pop-up editor"
-      class="bio-properties-panel-open-feel-popup"
-      onClick={ () => onPopupOpen() }><PopupIcon /></button>
+    {popupOpen ? null : (
+      <button
+        type="button"
+        title="Open pop-up editor"
+        class="bio-properties-panel-open-feel-popup"
+        onClick={ () => onPopupOpen() }><PopupIcon /></button>
+    )}
   </div>;
 });
 

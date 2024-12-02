@@ -101,7 +101,7 @@ function LspTextfieldComponent(props) {
   };
 
   const handleLspToggle = useStaticCallback(() => {
-    if (lsp === 'required') {
+    if (disabled || popuOpen || lsp === 'required') {
       return;
     }
 
@@ -139,6 +139,10 @@ function LspTextfieldComponent(props) {
     } else {
       onError(undefined);
     }
+  });
+
+  const handleConnectionError = useStaticCallback((msg) => {
+      onError(msg);
   });
 
   const handlePopupOpen = () => {
@@ -236,7 +240,7 @@ function LspTextfieldComponent(props) {
       <div class="bio-properties-panel-feel-container" ref={ containerRef }>
         <LspIndicator
           active={ lspActive }
-          disabled={ lsp !== 'optional' || disabled }
+          disabled={ lsp !== 'optional' || disabled || popuOpen }
           onClick={ handleLspToggle }
         />
         {lspActive ?
@@ -248,6 +252,7 @@ function LspTextfieldComponent(props) {
             popupOpen={ popuOpen }
             onLspToggle={ () => { handleLspToggle(); setFocus(true); } }
             onLint={ handleLint }
+            onConnectionError={ handleConnectionError }
             onPopupOpen={ handlePopupOpen }
             placeholder={ placeholder }
             value={ lspOnlyValue }
