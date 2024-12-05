@@ -58,6 +58,7 @@ const CodeEditor = forwardRef((props, ref) => {
     onLspToggle = noop,
     onLint = noop,
     onPopupOpen = noop,
+    onDispose = noop,
     onConnectionError,
     placeholder,
     popupOpen,
@@ -133,6 +134,7 @@ const CodeEditor = forwardRef((props, ref) => {
       }
       editor.dispose();
       setEditor(null);
+      onDispose();
     };
   }, []);
 

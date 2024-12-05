@@ -145,6 +145,12 @@ function LspTextfieldComponent(props) {
       onError(msg);
   });
 
+  const handleDispose = useStaticCallback(() => {
+    if (lspActive) {
+      setLocalValue(lspOnlyValue);
+    }
+  })
+
   const handlePopupOpen = () => {
     const popupOptions = {
       id,
@@ -253,6 +259,7 @@ function LspTextfieldComponent(props) {
             onLspToggle={ () => { handleLspToggle(); setFocus(true); } }
             onLint={ handleLint }
             onConnectionError={ handleConnectionError }
+            onDispose={ handleDispose }
             onPopupOpen={ handlePopupOpen }
             placeholder={ placeholder }
             value={ lspOnlyValue }
