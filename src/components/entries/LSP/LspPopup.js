@@ -15,8 +15,8 @@ import CodeEditor from './LspEditor';
 
 import { LaunchIcon } from '../../icons';
 
-export const LSP_POPUP_WIDTH = 700;
-export const LSP_POPUP_HEIGHT = 250;
+const LSP_POPUP_WIDTH = 700;
+const LSP_POPUP_HEIGHT = 250;
 
 
 /**
@@ -212,8 +212,8 @@ function LspPopupComponent(props) {
       closeOnEscape={ false }
       delayInitialFocus={ false }
       onPostDeactivate={ handleSetReturnFocus }
-      height={ LSP_POPUP_HEIGHT }
-      width={ LSP_POPUP_WIDTH }
+      height={ position.height || LSP_POPUP_HEIGHT }
+      width={ position.width || LSP_POPUP_WIDTH }
       ref={ popupRef }
     >
       <Popup.Title

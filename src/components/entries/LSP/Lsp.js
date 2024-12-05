@@ -25,11 +25,11 @@ import CodeEditor from './LspEditor';
 import { LspIndicator } from './LspIndicator';
 import LspIcon from './LspIcon';
 
-import { LSP_POPUP_WIDTH } from './LspPopup';
-
 import { LspPopupContext } from './context';
 
 import Tooltip from '../Tooltip';
+
+const POPUP_MARGIN = 60;
 
 const noop = () => {};
 
@@ -558,11 +558,26 @@ function prefixId(id) {
 }
 
 function calculatePopupPosition(element) {
-  const { top, left } = element.getBoundingClientRect();
+  const { left: elemLeft } = element.getBoundingClientRect();
+  const { 
+    top: docTop, 
+    left: docLeft, 
+    height: docHeight
+  } = document.documentElement.getBoundingClientRect();
+
+  var docRight = element.getBoundingClientRect().left - 20;
+  // Try to use the left of the properties-panel. 
+  // This yields better results than the hardcoded 20px.
+  const propertiesPanel = element.closest('.bio-properties-panel-container');
+  if (propertiesPanel) {
+    docRight = propertiesPanel.getBoundingClientRect().left
+  }
 
   return {
-    left: left - LSP_POPUP_WIDTH - 20,
-    top: top
+    top: docTop + POPUP_MARGIN,
+    left: docLeft + POPUP_MARGIN,
+    width: Math.max(docRight - docLeft - 2*POPUP_MARGIN, 400),
+    height: Math.max(docHeight - 2*POPUP_MARGIN, 300)
   };
 }
 
