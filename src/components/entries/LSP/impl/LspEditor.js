@@ -7,7 +7,7 @@ import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { setDiagnosticsEffect } from '@codemirror/lint';
 import { WebSocketTransport } from '@open-rpc/client-js';
 import { isFunction } from 'min-dash';
-import WS from "isomorphic-ws";
+import WS from 'isomorphic-ws';
 
 import theme from './theme';
 

@@ -142,7 +142,7 @@ function LspTextfieldComponent(props) {
   });
 
   const handleConnectionError = useStaticCallback((msg) => {
-      onError(msg);
+    onError(msg);
   });
 
   const handleDispose = useStaticCallback(() => {
