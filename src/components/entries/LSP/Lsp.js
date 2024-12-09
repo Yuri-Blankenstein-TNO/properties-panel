@@ -149,7 +149,7 @@ function LspTextfieldComponent(props) {
     if (lspActive) {
       setLocalValue(lspOnlyValue);
     }
-  })
+  });
 
   const handlePopupOpen = () => {
     const popupOptions = {
