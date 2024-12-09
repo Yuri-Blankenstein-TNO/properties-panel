@@ -565,7 +565,6 @@ function prefixId(id) {
 }
 
 function calculatePopupPosition(element) {
-  const { left: elemLeft } = element.getBoundingClientRect();
   const {
     top: docTop,
     left: docLeft,
