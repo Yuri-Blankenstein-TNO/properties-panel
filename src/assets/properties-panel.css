@@ -737,6 +737,20 @@ textarea.bio-properties-panel-input {
   align-self: center;
 }
 
+.bio-properties-panel-collapsible-entry-dash {
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  height: 2px;
+  width: 10px;
+  padding: 0 3px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  align-self: center;
+  background-color: var(--dot-color);
+}
+
 .bio-properties-panel-remove-entry {
   display: flex;
   align-items: center;
