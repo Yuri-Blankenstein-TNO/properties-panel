@@ -32,7 +32,7 @@ export default function CollapsibleEntry(props) {
 
   const [ open, setOpen ] = useState(shouldOpen);
 
-  const toggleOpen = () => setOpen(!open && entries.length > 0);
+  const toggleOpen = () => setOpen(!open);
 
   const { onShow } = useContext(PropertiesPanelContext);
 
