@@ -26,7 +26,8 @@ export default function CollapsibleEntry(props) {
     label,
     open: shouldOpen,
     remove,
-    translate = translateFallback
+    translate = translateFallback,
+    link
   } = props;
 
   const [ open, setOpen ] = useState(shouldOpen);
@@ -56,22 +57,45 @@ export default function CollapsibleEntry(props) {
         'bio-properties-panel-collapsible-entry',
         open ? 'open' : ''
       ) }>
-      <div class="bio-properties-panel-collapsible-entry-header" onClick={ toggleOpen }>
+      <div class="bio-properties-panel-collapsible-entry-header" onClick={ link || entries.length == 0 ? null : toggleOpen }>
         <div
           title={ label || placeholderLabel }
           class={ classnames(
             'bio-properties-panel-collapsible-entry-header-title',
             !label && 'empty'
           ) }>
-          { label || placeholderLabel }
+          {
+            link
+              ?
+              (
+                <a href={ typeof link === 'function' ? 'javascript:void(0);' : link } onClick={ typeof link === 'function' ? link : undefined }>
+                  { label || placeholderLabel }
+                </a>
+              )
+              :
+              (
+                label || placeholderLabel
+              )
+          }
         </div>
-        <button
-          type="button"
-          title={ translate('Toggle list item') }
-          class="bio-properties-panel-arrow  bio-properties-panel-collapsible-entry-arrow"
-        >
-          <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
-        </button>
+        {
+          entries.length > 0
+            ?
+            (
+              <button
+                type="button"
+                title={ translate('Toggle list item') }
+                class="bio-properties-panel-arrow  bio-properties-panel-collapsible-entry-arrow"
+                onClick={ link ? toggleOpen : null }
+              >
+                <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
+              </button>
+            )
+            :
+            (
+              <div class="bio-properties-panel-collapsible-entry-dash"></div>
+            )
+        }
         {
           remove
             ?

@@ -100,7 +100,15 @@ describe('<Collapsible>', function() {
   it('should toggle open', async function() {
 
     // given
-    const { container } = createCollapsible({ container: parentContainer });
+    const { container } = createCollapsible({
+      container: parentContainer,
+      entries: [
+        {
+          id: 'entry-1',
+          component: TestEntry
+        }
+      ]
+    });
 
     const entry = domQuery('.bio-properties-panel-collapsible-entry', container);
 
@@ -230,7 +238,16 @@ describe('<Collapsible>', function() {
     it('should render translated toggle button title', function() {
 
       // given
-      const { container } = createCollapsible({ container: parentContainer, translate });
+      const { container } = createCollapsible({
+        container: parentContainer,
+        translate,
+        entries: [
+          {
+            id: 'entry-1',
+            component: TestEntry
+          }
+        ]
+      });
 
       const toggleButton = domQuery('.bio-properties-panel-collapsible-entry-arrow', container);
 
