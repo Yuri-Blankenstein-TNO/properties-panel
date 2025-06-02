@@ -57,7 +57,7 @@ export default function CollapsibleEntry(props) {
         'bio-properties-panel-collapsible-entry',
         open ? 'open' : ''
       ) }>
-      <div class="bio-properties-panel-collapsible-entry-header" onClick={ link ? null : toggleOpen }>
+      <div class="bio-properties-panel-collapsible-entry-header" onClick={ link || entries.length == 0 ? null : toggleOpen }>
         <div
           title={ label || placeholderLabel }
           class={ classnames(
@@ -69,7 +69,7 @@ export default function CollapsibleEntry(props) {
               ?
               (
                 <a href={ typeof link === 'function' ? 'javascript:void(0);' : link } onClick={ typeof link === 'function' ? link : undefined }>
-                  {label || placeholderLabel}
+                  { label || placeholderLabel }
                 </a>
               )
               :
