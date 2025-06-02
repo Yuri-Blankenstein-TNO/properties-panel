@@ -64,37 +64,37 @@ export default function CollapsibleEntry(props) {
             'bio-properties-panel-collapsible-entry-header-title',
             !label && 'empty'
           ) }>
-          { 
+          {
             link
-            ?
-            (
-              <a href={ typeof link === 'function' ? 'javascript:void(0);' : link } onClick={ typeof link === 'function' ? link : undefined }>
-                {label || placeholderLabel}
-              </a>
-            )
-            :
-            (
-              label || placeholderLabel
-            )
+              ?
+              (
+                <a href={ typeof link === 'function' ? 'javascript:void(0);' : link } onClick={ typeof link === 'function' ? link : undefined }>
+                  {label || placeholderLabel}
+                </a>
+              )
+              :
+              (
+                label || placeholderLabel
+              )
           }
         </div>
         {
           entries.length > 0
-          ?
-          (
-          <button
-            type="button"
-            title={ translate('Toggle list item') }
-            class="bio-properties-panel-arrow  bio-properties-panel-collapsible-entry-arrow"
-            onClick={ link ? toggleOpen : null }
-          >
-            <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
-          </button>
-          )
-          :
-          (
-            <div class="bio-properties-panel-collapsible-entry-dash"></div>
-          )
+            ?
+            (
+              <button
+                type="button"
+                title={ translate('Toggle list item') }
+                class="bio-properties-panel-arrow  bio-properties-panel-collapsible-entry-arrow"
+                onClick={ link ? toggleOpen : null }
+              >
+                <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
+              </button>
+            )
+            :
+            (
+              <div class="bio-properties-panel-collapsible-entry-dash"></div>
+            )
         }
         {
           remove
