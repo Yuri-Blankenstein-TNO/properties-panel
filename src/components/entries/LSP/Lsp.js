@@ -33,6 +33,31 @@ const POPUP_MARGIN = 60;
 
 const noop = () => {};
 
+/**
+ * @typedef {'required'|'optional'|'static'} LspType
+ */
+
+/**
+ * @param {Object} props
+ * @param {Boolean} props.debounce
+ * @param {String} props.id
+ * @param {Object} props.element
+ * @param {String} props.label
+ * @param {String} props.hostLanguage
+ * @param {Function} props.onInput
+ * @param {Function} props.onBlur
+ * @param {Function} props.onError
+ * @param {LspType} [props.lsp]
+ * @param {String} props.value
+ * @param {Boolean} [props.singleLine]
+ * @param {Function} props.tooltipContainer
+ * @param {Function | import('preact').Component} props.OptionalComponent
+ * @param {Boolean} props.disabled
+ * @param {Array} props.variables
+ * @param {string} [props.placeholder]
+ * @param {string | import('preact').Component} props.tooltip
+ */
+
 function LspTextfieldComponent(props) {
   const {
     debounce,
@@ -40,6 +65,7 @@ function LspTextfieldComponent(props) {
     element,
     label,
     onInput,
+    onBlur,
     onError,
     placeholder,
     lsp,
@@ -57,7 +83,7 @@ function LspTextfieldComponent(props) {
     tooltip
   } = props;
 
-  const [ localValue, _setLocalValue ] = useState(value);
+  const [ localValue, setLocalValue ] = useState(value);
 
   const editorRef = useShowEntryEvent(id);
   const containerRef = useRef();
@@ -83,21 +109,22 @@ function LspTextfieldComponent(props) {
     _setFocus(position + offset);
   };
 
+  /**
+   * @type { import('min-dash').DebouncedFunction }
+   */
   const handleInputCallback = useMemo(() => {
     return debounce((newValue) => {
       onInput(newValue);
     });
   }, [ onInput, debounce ]);
 
-  const setLocalValue = newValue => {
-    _setLocalValue(newValue);
+  const handleInput = newValue => {
 
-    if (typeof newValue === 'undefined' || newValue === '' || newValue === '=') {
-      handleInputCallback(undefined);
-    } else {
-      handleInputCallback(newValue);
-    }
+    // we don't commit empty LSP expressions,
+    // but instead serialize them as <undefined>
+    const newModelValue = (newValue === '' || newValue === '=') ? undefined : newValue;
 
+    handleInputCallback(newModelValue);
   };
 
   const handleLspToggle = useStaticCallback(() => {
@@ -107,8 +134,10 @@ function LspTextfieldComponent(props) {
 
     if (!lspActive) {
       setLocalValue('=' + localValue);
+      handleInput('=' + localValue);
     } else {
       setLocalValue(lspOnlyValue);
+      handleInput(lspOnlyValue);
     }
   });
 
@@ -122,11 +151,27 @@ function LspTextfieldComponent(props) {
     }
 
     setLocalValue(newValue);
+    handleInput(newValue);
 
     if (!lspActive && isString(newValue) && newValue.startsWith('=')) {
 
       // focus is behind `=` sign that will be removed
       setFocus(-1);
+    }
+  };
+
+  const handleOnBlur = (e) => {
+    const value = e.target.value;
+
+    // we trim the value, if it is needed
+    // and update input accordingly
+    if (value.trim() !== value) {
+      setLocalValue(value.trim());
+      handleInput(value.trim());
+    }
+
+    if (onBlur) {
+      onBlur(e);
     }
   };
 
@@ -277,6 +322,7 @@ function LspTextfieldComponent(props) {
             { ...props }
             popupOpen={ popuOpen }
             onInput={ handleLocalInput }
+            onBlur={ handleOnBlur }
             contentAttributes={ { 'id': prefixId(id), 'aria-label': label } }
             value={ localValue }
             ref={ editorRef }
@@ -398,7 +444,7 @@ const OptionalLspTextArea = forwardRef((props, ref) => {
  * @param {String} props.description
  * @param {Boolean} props.debounce
  * @param {Boolean} props.disabled
- * @param {Boolean} props.lsp
+ * @param {LspType} props.lsp
  * @param {String} props.label
  * @param {Function} props.getValue
  * @param {Function} props.setValue
@@ -457,7 +503,8 @@ export default function LspEntry(props) {
     }
   }, [ value, validate ]);
 
-  const onInput = useStaticCallback((newValue) => {
+  const onInput = useCallback((newValue) => {
+    const value = getValue(element);
     let newValidationError = null;
 
     if (isFunction(validate)) {
@@ -470,7 +517,7 @@ export default function LspEntry(props) {
     }
 
     setValidationError(newValidationError);
-  });
+  }, [ element ]);
 
   const onError = useCallback(err => {
     setLocalError(err);
@@ -526,7 +573,7 @@ export default function LspEntry(props) {
  * @param {String} props.description
  * @param {Boolean} props.debounce
  * @param {Boolean} props.disabled
- * @param {Boolean} props.lsp
+ * @param {LspType} [props.lsp]
  * @param {String} props.label
  * @param {Function} props.getValue
  * @param {Function} props.setValue
