@@ -6,6 +6,49 @@ All notable changes to [`@bpmn-io/properties-panel`](https://github.com/bpmn-io/
 
 ___Note:__ Yet to be released changes appear here._
 
+## 3.27.3
+
+* `FIX`: fix performance issue when typing fast ([#416](https://github.com/bpmn-io/properties-panel/pull/416))
+
+## 3.27.2
+
+* `FIX`: show literal values in FEEL suggestions
+* `DEPS`: update to `@bpmn-io/feel-editor@1.10.1`
+
+## 3.27.1
+
+* `FIX`: commit erased change ([#414](https://github.com/bpmn-io/properties-panel/pull/414))
+
+## 3.27.0
+
+* `FEAT`: trim whitespace in text inputs ([#309](https://github.com/bpmn-io/properties-panel/issues/309), [#404](https://github.com/bpmn-io/properties-panel/issues/404))
+
+## 3.26.4
+
+* `FIX`: revert trim trailing whitespaces from all input fields except expressions ([#401](https://github.com/bpmn-io/properties-panel/pull/401), [#402](https://github.com/bpmn-io/properties-panel/pull/402)) added in v3.26.3 due to an [issue with debounced updates](https://github.com/bpmn-io/properties-panel/issues/404)
+
+## 3.26.3
+
+* `FIX`: trim trailing whitespaces from all input fields except expressions ([#401](https://github.com/bpmn-io/properties-panel/pull/401), [#402](https://github.com/bpmn-io/properties-panel/pull/402))
+
+## 3.26.2
+
+* `FIX`: make tooltip persist when trying to copy from it ([#399](https://github.com/bpmn-io/properties-panel/pull/399))
+
+## 3.26.1
+
+* `FIX`: remove input border from popups ([#398](https://github.com/bpmn-io/properties-panel/pull/398))
+
+## 3.26.0
+
+* `FEAT`: suggest latest Camunda FEEL built-ins ([@bpmn-io/feel-editor#65](https://github.com/bpmn-io/feel-editor/pull/65))
+* `DEPS`: update to `@bpmn-io/feel-editor@1.10.0`
+
+## 3.25.1
+
+* `FEAT`: support for `diagram-js` v15
+* `FIX`: add focus to checkboxes and buttons ([#390](https://github.com/bpmn-io/properties-panel/pull/390))
+
 ## 3.25.0
 
 * `FEAT`: links shown in FEEL popup are configurable ([#382](https://github.com/bpmn-io/properties-panel/pull/382))
