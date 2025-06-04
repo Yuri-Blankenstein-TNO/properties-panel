@@ -193,6 +193,7 @@ function LspTextfieldComponent(props) {
   const handleDispose = useStaticCallback(() => {
     if (lspActive) {
       setLocalValue(lspOnlyValue);
+      handleInput(lspOnlyValue);
     }
   });
 
