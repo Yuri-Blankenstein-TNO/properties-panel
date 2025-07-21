@@ -7,7 +7,6 @@ import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { setDiagnosticsEffect } from '@codemirror/lint';
 import { WebSocketTransport } from '@open-rpc/client-js';
 import { isFunction } from 'min-dash';
-import WS from 'isomorphic-ws';
 
 import theme from './theme';
 
@@ -100,18 +99,16 @@ export default class LspEditor {
       }
     }) : [];
 
+    const transport = new WebSocketTransport(serverUri);
+
     if (isFunction(onConnectionError)) {
-      const ws = new WS(serverUri);
-      ws.addEventListener('open', (event) => {
-        event.target.close();
-      });
-      ws.addEventListener('error', (event) => {
-        onConnectionError(`WebSocket connection to '${serverUri}' failed.`);
+      transport.connection.addEventListener('error', (event) => {
+        onConnectionError(event.message || `WebSocket connection to '${serverUri}' failed.`);
       });
     }
 
     this._client = new LanguageServerClient({
-      transport: new WebSocketTransport(serverUri),
+      transport,
       rootUri
     });
 
