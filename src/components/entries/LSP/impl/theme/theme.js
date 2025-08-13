@@ -54,6 +54,9 @@ export const highlightTheme = EditorView.baseTheme({
   '& .bool': {
     color: '#219'
   },
+  '& .null': {
+    color: '#708'
+  },
   '& .function': {
     color: '#aa3731',
     fontWeight: 'bold'
@@ -77,6 +80,7 @@ export const syntaxClasses = syntaxHighlighting(
     { tag: t.number, class: 'number' },
     { tag: t.string, class: 'string' },
     { tag: t.bool, class: 'bool' },
+    { tag: t.null, class: 'null' },
     { tag: t.function(t.variableName), class: 'function' },
     { tag: t.function(t.special(t.variableName)), class: 'function' },
     { tag: t.controlKeyword, class: 'control' },
