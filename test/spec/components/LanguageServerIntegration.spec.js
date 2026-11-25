@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import { stub } from 'sinon';
 import { act, cleanup, render, waitFor } from '@testing-library/preact';
 import { startCompletion } from '@codemirror/autocomplete';
+import { json } from '@codemirror/lang-json';
 import { forEachDiagnostic } from '@codemirror/lint';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -12,6 +13,7 @@ import {
 } from 'codemirror-languageserver';
 import EventBus from 'diagram-js/lib/core/EventBus';
 import PropertiesPanel from 'src/PropertiesPanel';
+import { syntaxClasses } from 'src/components/entries/LSP/impl/theme/theme';
 
 class TestTransport {
   constructor() {
@@ -193,6 +195,18 @@ describe('language server integration', function() {
         },
         text: 'X'
       } ]);
+  });
+
+  it('highlights null values in language-server editors', function() {
+    view = new EditorView({
+      state: EditorState.create({
+        doc: 'null',
+        extensions: [ json(), syntaxClasses ]
+      }),
+      parent: document.body
+    });
+
+    expect(view.dom.querySelector('.null')?.textContent).to.equal('null');
   });
 
   it('rejects formatting edits that would replace hidden context', async function() {
