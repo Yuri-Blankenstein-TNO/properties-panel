@@ -86,63 +86,92 @@ describe('language server integration', function() {
       parent: document.body
     });
 
-    describe('properties panel language server popup', function() {
-      let webSocket;
-
-      beforeEach(function() {
-        class FakeWebSocket extends EventTarget {
-          static OPEN = 1;
-          readyState = 0;
-          close() {}
-        }
-
-        webSocket = stub(window, 'WebSocket').callsFake(() => new FakeWebSocket());
-        webSocket.OPEN = FakeWebSocket.OPEN;
-      });
-
-      afterEach(function() {
-        cleanup();
-        webSocket.restore();
-      });
-
-      it('opens and closes the LSP popup in the configured container', async function() {
-        const eventBus = new EventBus();
-        const popupContainer = document.createElement('div');
-        document.body.appendChild(popupContainer);
-
-        try {
-          render(<PropertiesPanel
-            element={ { id: 'test' } }
-            groups={ [] }
-            eventBus={ eventBus }
-            lspPopupContainer={ popupContainer } />);
-
-          await act(() => eventBus.fire('lspPopup._open', {
-            entryId: 'entry',
-            popupConfig: {
-              id: 'entry',
-              title: 'Expression',
-              value: 'abc',
-              languageId: 'test',
-              serverUri: 'ws://localhost:1234',
-              onInput: () => {}
-            }
-          }));
-
-          expect(popupContainer.querySelector('.cm-editor')).to.exist;
-
-          await act(() => eventBus.fire('lspPopup._close'));
-          expect(popupContainer.querySelector('.cm-editor')).to.not.exist;
-        } finally {
-          popupContainer.remove();
-        }
-      });
-    });
     await waitFor(() => expect(messages('textDocument/didOpen')).to.have.length(1));
   }
 
   afterEach(function() {
     view?.destroy();
+  });
+
+  describe('properties panel language server popup', function() {
+    let webSocket, connections;
+
+    beforeEach(function() {
+      class FakeWebSocket extends EventTarget {
+        static OPEN = 1;
+        readyState = 1;
+        messages = [];
+
+        send(raw) {
+          const message = JSON.parse(raw);
+          this.messages.push(message);
+
+          if (message.method === 'initialize') {
+            queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', {
+              data: JSON.stringify({
+                jsonrpc: '2.0',
+                id: message.id,
+                result: { capabilities: {} }
+              })
+            })));
+          }
+        }
+
+        close() {}
+      }
+
+      connections = [];
+      webSocket = stub(window, 'WebSocket').callsFake(() => {
+        const connection = new FakeWebSocket();
+        connections.push(connection);
+        return connection;
+      });
+      webSocket.OPEN = FakeWebSocket.OPEN;
+    });
+
+    afterEach(function() {
+      cleanup();
+      webSocket.restore();
+    });
+
+    it('opens the popup and sends the full expression to the language server', async function() {
+      const eventBus = new EventBus();
+      const popupContainer = document.createElement('div');
+      document.body.appendChild(popupContainer);
+
+      try {
+        render(<PropertiesPanel
+          element={ { id: 'test' } }
+          groups={ [] }
+          eventBus={ eventBus }
+          lspPopupContainer={ popupContainer } />);
+
+        await act(() => eventBus.fire('lspPopup._open', {
+          entryId: 'entry',
+          popupConfig: {
+            id: 'entry',
+            title: 'Expression',
+            value: 'abc',
+            prefix: 'context\n',
+            suffix: '\nend',
+            languageId: 'test',
+            serverUri: 'ws://localhost:1234',
+            onInput: () => {}
+          }
+        }));
+
+        expect(popupContainer.querySelector('.cm-editor')).to.exist;
+        await waitFor(() => {
+          const didOpen = connections[0].messages.find(message => message.method === 'textDocument/didOpen');
+          expect(didOpen.params.textDocument.text).to.equal('context\nabc\nend');
+        });
+
+        await act(() => eventBus.fire('lspPopup._close'));
+        expect(popupContainer.querySelector('.cm-editor')).to.not.exist;
+      } finally {
+        popupContainer.remove();
+      }
+    });
   });
 
   it('sends virtual document text and maps completion positions', async function() {
