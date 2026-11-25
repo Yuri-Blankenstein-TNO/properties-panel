@@ -17,6 +17,8 @@ import { PropertiesPanelContext } from '../../context';
 
 import translateFallback from '../util/translateFallback';
 
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
 
 export default function CollapsibleEntry(props) {
   const {
@@ -50,6 +52,8 @@ export default function CollapsibleEntry(props) {
 
   const placeholderLabel = translate('<empty>');
 
+  const hasEntries = entries.length > 0;
+
   return (
     <div
       data-entry-id={ id }
@@ -57,9 +61,8 @@ export default function CollapsibleEntry(props) {
         'bio-properties-panel-collapsible-entry',
         open ? 'open' : ''
       ) }>
-      <div class="bio-properties-panel-collapsible-entry-header" onClick={ link || entries.length == 0 ? null : toggleOpen }>
+      <div class="bio-properties-panel-collapsible-entry-header" onClick={ link || !hasEntries ? null : toggleOpen }>
         <div
-          title={ label || placeholderLabel }
           class={ classnames(
             'bio-properties-panel-collapsible-entry-header-title',
             !label && 'empty'
@@ -79,7 +82,7 @@ export default function CollapsibleEntry(props) {
           }
         </div>
         {
-          entries.length > 0
+          hasEntries
             ?
             (
               <button

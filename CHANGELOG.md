@@ -6,6 +6,345 @@ All notable changes to [`@bpmn-io/properties-panel`](https://github.com/bpmn-io/
 
 ___Note:__ Yet to be released changes appear here._
 
+## 3.60.2
+
+* `FIX`: do not crash when IntersectionObserver is unavailable ([#572](https://github.com/bpmn-io/properties-panel/pull/572))
+
+## 3.60.1
+
+* `FIX`: preserve the popup's original FEEL mode when committing drafts ([#571](https://github.com/bpmn-io/properties-panel/pull/571))
+
+## 3.60.0
+
+* `FEAT`: allow committing FEEL popup edits without closing ([#569](https://github.com/bpmn-io/properties-panel/pull/569))
+* `FEAT`: remember popup size and position per properties panel layout ([#570](https://github.com/bpmn-io/properties-panel/pull/570))
+
+## 3.59.0
+
+* `FEAT`: make popup resizable ([#568](https://github.com/bpmn-io/properties-panel/pull/568))
+
+## 3.58.1
+
+* `FIX`: apply popup changes once on close ([#566](https://github.com/bpmn-io/properties-panel/pull/566))
+* `DEPS`: update to @bpmn-io/feel-editor@2.8.1 ([#566](https://github.com/bpmn-io/properties-panel/pull/566))
+
+## 3.58.0
+
+* `FEAT`: export `DiagnosticMessage` to render diagnostics in custom entries
+
+## 3.57.1
+
+* `FIX`: do not render an icon or message for diagnostics with an empty message, e.g. action-only diagnostics ([#562](https://github.com/bpmn-io/properties-panel/pull/562))
+
+## 3.57.0
+
+* `FEAT`: support `ariaLabel` on diagnostic actions ([#560](https://github.com/bpmn-io/properties-panel/pull/560))
+* `FEAT`: restore focus to the field when a focused diagnostic action unmounts ([#560](https://github.com/bpmn-io/properties-panel/pull/560))
+
+## 3.56.1
+
+* `FIX`: convert empty optional FEEL number fields to FEEL on `=` key press ([#559](https://github.com/bpmn-io/properties-panel/pull/559))
+
+## 3.56.0
+
+* `FEAT`: support entry diagnostics with `info`, `warning` and `error` severity, displaying the most severe one ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: set diagnostics through `propertiesPanel.setDiagnostics` ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: allow diagnostics to carry an action with a custom label and tooltip ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: allow `validate` to return a diagnostic ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: indicate the most severe diagnostic in group and list markers ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: allow `Tooltip` to skip its own tab stop via a `focusable` prop, for triggers that are already focusable ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FIX`: mark checkbox entries with errors ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FIX`: report the most severe templating lint error, not the first report ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `FEAT`: display an icon on `info` diagnostics
+* `FIX`: show externally provided errors over local ones in templating entries, consistent with all other entries ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+
+### Deprecation
+
+* `propertiesPanel.setErrors`, `ErrorsContext`, `useError` and `useErrors` in favor of their diagnostics counterparts ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+* `bio-properties-panel-error-message` and `bio-properties-panel-error-action` classes in favor of `bio-properties-panel-diagnostic-message` and `bio-properties-panel-diagnostic-action`, kept alongside them for backwards compatibility ([#554](https://github.com/bpmn-io/properties-panel/pull/554))
+
+## 3.55.0
+
+* `FEAT`: source color variables from `@bpmn-io/theme` ([#551](https://github.com/bpmn-io/properties-panel/pull/551))
+
+## 3.54.1
+
+* `FIX`: remove background from FEEL popup icon ([#555](https://github.com/bpmn-io/properties-panel/pull/555))
+
+## 3.54.0
+
+* `FEAT`: expose popup components ([#550](https://github.com/bpmn-io/properties-panel/pull/550))
+* `FIX`: center popup based on its own size ([#550](https://github.com/bpmn-io/properties-panel/pull/550))
+* `FIX`: release popup element reference on close ([#550](https://github.com/bpmn-io/properties-panel/pull/550))
+
+## 3.53.0
+
+* `FEAT`: add `--accent-*` theming tokens and `--accent` list badge ([#549](https://github.com/bpmn-io/properties-panel/pull/549))
+* `FIX`: reserve space for open pop-up button in FEEL editor ([#525](https://github.com/bpmn-io/properties-panel/pull/525))
+* `FIX`: use WCAG AA compliant accent color ([#549](https://github.com/bpmn-io/properties-panel/pull/549))
+
+## 3.52.0
+
+* `FEAT`: add `--warning-badge-*` and `--error-badge-*` theming tokens ([#547](https://github.com/bpmn-io/properties-panel/pull/547))
+* `FIX`: use accessible foreground color for warning list badge ([#547](https://github.com/bpmn-io/properties-panel/pull/547))
+
+## 3.51.2
+
+* `FIX`: force linting after engines change ([bpmn-io/feel-editor#114](https://github.com/bpmn-io/feel-editor/pull/114))
+* `DEPS`: update to `@bpmn-io/feel-editor@2.7.1`
+
+## 3.51.1
+
+* `FIX`: correct checkbox alignment ([#545](https://github.com/bpmn-io/properties-panel/pull/545))
+* `FIX`: unify line height across `warning`, `error` and `description` attachments ([#545](https://github.com/bpmn-io/properties-panel/pull/545))
+* `FIX`: increase description and label offset to accommodate for focus ring ([#545](https://github.com/bpmn-io/properties-panel/pull/545))
+
+## 3.51.0
+
+* `FEAT`: add semantic warning tokens and `.has-warning` entry modifier ([#544](https://github.com/bpmn-io/properties-panel/pull/544))
+
+## 3.50.0
+
+* `FEAT`: use CSS for textarea auto-resize ([#540](https://github.com/bpmn-io/properties-panel/pull/540))
+* `FIX`: react to `engines` change of FEEL editor ([#543](https://github.com/bpmn-io/properties-panel/issues/543))
+
+## 3.49.2
+
+* `FIX`: only show text popup scrollbar when content overflows ([#542](https://github.com/bpmn-io/properties-panel/issues/542))
+
+## 3.49.1
+
+* `FIX`: resolve sticky observer scroll container relative to observed element ([#539](https://github.com/bpmn-io/properties-panel/pull/539))
+* `FIX`: correct sticky headers not working when multiple properties panels are mounted ([#539](https://github.com/bpmn-io/properties-panel/pull/539))
+
+## 3.49.0
+
+* `FEAT`: add themable focus ring to inputs/controls ([#535](https://github.com/bpmn-io/properties-panel/pull/535))
+* `FEAT`: pass engine versions to editor for FEEL compatibility linting ([#533](https://github.com/bpmn-io/properties-panel/pull/533))
+* `FEAT`: unify single line input height ([#537](https://github.com/bpmn-io/properties-panel/pull/537))
+* `FIX`: do not show vertical resizer for auto resizing `Text` fields ([#537](https://github.com/bpmn-io/properties-panel/pull/537))
+* `FIX`: center popup button vertically ([#537](https://github.com/bpmn-io/properties-panel/pull/537))
+* `FIX`: show input active state on actual focus only ([#538](https://github.com/bpmn-io/properties-panel/pull/538))
+* `FIX`: restore FEEL syntax highlighting with `@bpmn-io/cm-theme@0.2.1+` ([bpmn-io/feelers#117](https://github.com/bpmn-io/feelers/pull/117))
+* `DEPS`: update to `@bpmn-io/feel-editor@2.7.0`
+* `DEPS`: update to `@bpmn-io/feelers-editor@1.1.1`
+* `DEPS`: update to `min-dash@5.1.0`
+
+## 3.48.0
+
+* `FEAT`: enable popup editor for text areas ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FEAT`: allow registering custom popup providers ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FEAT`: allow overriding popup providers via priority ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FEAT`: resize `TextArea` on any interaction ([#529](https://github.com/bpmn-io/properties-panel/pull/529))
+* `FIX`: support snippet placeholder navigation in FEEL popup ([#524](https://github.com/bpmn-io/properties-panel/pull/524))
+* `FIX`: respect popup size constants ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FIX`: respect field height when showing a placeholder ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FIX`: scope text popup editor id to avoid duplicate DOM ids ([#523](https://github.com/bpmn-io/properties-panel/pull/523))
+* `FIX`: compare popup input against live value ([#530](https://github.com/bpmn-io/properties-panel/pull/530))
+
+## 3.47.0
+
+* `FEAT`: enhance FEEL syntax highlighting ([bpmn-io/feel-editor#100](https://github.com/bpmn-io/feel-editor/pull/100))
+* `FIX`: correct snippet completions in path segment ([bpmn-io/feel-editor#105](https://github.com/bpmn-io/feel-editor/pull/105))
+* `FIX`: correct snippet completions from prefix ([bpmn-io/feel-editor#105](https://github.com/bpmn-io/feel-editor/pull/105))
+* `DEPS`: update to `@bpmn-io/feel-editor@2.6.0`
+
+## 3.46.0
+
+* `DEPS`: drop `@carbon/icons` dependency ([#518](https://github.com/bpmn-io/properties-panel/pull/518))
+
+## 3.45.0
+
+* `FEAT`: add missing `translate` calls ([#505](https://github.com/bpmn-io/properties-panel/pull/505), [#504](https://github.com/bpmn-io/properties-panel/pull/504))
+* `FIX`: correct paste in template editor overriding current contents ([#503](https://github.com/bpmn-io/properties-panel/pull/503))
+* `CHORE`: replace `feelers` with `@bpmn-io/feelers-editor` dependency ([#516](https://github.com/bpmn-io/properties-panel/pull/516))
+
+## 3.44.1
+
+* `FIX`: support translation of list component ([#504](https://github.com/bpmn-io/properties-panel/pull/504))
+* `FIX`: use semantic color name for tooltip underline ([#500](https://github.com/bpmn-io/properties-panel/pull/500))
+
+## 3.44.0
+
+* `FEAT`: de-emphasize tooltiped element underlines ([#499](https://github.com/bpmn-io/properties-panel/pull/499))
+
+## 3.43.0
+
+* `FEAT`: style `<code>` as monospace, following theme ([#496](https://github.com/bpmn-io/properties-panel/pull/496))
+* `FIX`: allow to navigate to tooltip contents inside of groups ([#493](https://github.com/bpmn-io/properties-panel/issues/493))
+* `DEPS`: update to `min-dom@5.3.0`
+
+## 3.42.0
+
+* `FEAT`: do not render `<Header>` if no `headerProvider` is provided ([#491](https://github.com/bpmn-io/properties-panel/pull/491))
+
+## 3.41.3
+
+* `FIX`: add support of external validator for `JsonEditorEntry` ([#489](https://github.com/bpmn-io/properties-panel/pull/489))
+
+## 3.41.2
+
+* `FIX`: fix JSON editor entry `isEdited` check from a properties panel group header ([#488](https://github.com/bpmn-io/properties-panel/pull/488))
+
+## 3.41.1
+
+* `FIX`: prevent inline error in JSON editor with empty value ([#487](https://github.com/bpmn-io/properties-panel/pull/487))
+
+## 3.41.0
+
+* `FEAT`: add `JsonEditor` component ([#485](https://github.com/bpmn-io/properties-panel/pull/485))
+
+## 3.40.6
+
+* `FIX`: make FeelEditor read-only based on the `disabled` prop ([#484](https://github.com/bpmn-io/properties-panel/pull/484))
+
+## 3.40.5
+
+* `FIX`: Ensure Feel/Text editors value is properly committed on blur, paste, and unmount ([#481](https://github.com/bpmn-io/properties-panel/pull/481))
+
+## 3.40.4
+
+* `FIX`: re-enable toggling feel optional fields with backspace ([@bpmn-io/feel-editor#83](https://github.com/bpmn-io/feel-editor/pull/83))
+* `FIX`: continue suggestions for autocompletion in feel fields even after spaces ([@bpmn-io/feel-editor#84](https://github.com/bpmn-io/feel-editor/pull/84))
+* `DEPS`: update to `@bpmn-io/feel-editor@2.5.2`
+
+## 3.40.3
+
+* `FIX`: defer static callback updates to after layouting ([#471](https://github.com/bpmn-io/properties-panel/pull/471))
+* `FIX`: add selected element as key of toggleSwitch
+* `FIX`: gracefully handle missing debounce ([#475](https://github.com/bpmn-io/properties-panel/issues/475))
+
+## 3.40.2
+
+* `FIX`: add `type` to feel popup button ([#472](https://github.com/bpmn-io/properties-panel/pull/472))
+
+## 3.40.1
+
+* `FIX`: prevent cutting the tooltip if it couldn't fit to the bottom of the screen ([#469](https://github.com/bpmn-io/properties-panel/pull/469))
+
+## 3.40.0
+
+* `FEAT`: support `optional-default-enabled` FEEL entry config ([#470](https://github.com/bpmn-io/properties-panel/pull/470))
+
+## 3.39.0
+
+* `DEPS`: update to `@bpmn-io/feel-editor@2.5.0`
+* `DEPS`: update to `focus-trap@8.0.0`
+
+## 3.38.0
+
+* `DEPS`: update to `feelers@1.5.1`
+
+## 3.37.0
+
+* `DEPS`: update to `min-dash@5.0.0`
+* `DEPS`: update to `min-dom@5.2.0`
+* `DEPS`: update to `@bpmn-io/feel-editor@2.1.0`
+* `DEPS`: update to `classnames@2.5.1`
+
+## 3.36.1
+
+* `FIX`: prevent stale layout state in `setLayoutForKey` callback ([#468](https://github.com/bpmn-io/properties-panel/pull/468))
+
+## 3.36.0
+
+* `FEAT`: add `CheckboxGroup` entry type ([#464](https://github.com/bpmn-io/properties-panel/pull/464))
+
+## 3.35.1
+
+* `FIX`: revert [`1a8031e`](https://github.com/bpmn-io/properties-panel/commit/1a8031e7b5b20295098428b7fbb38f3dced0a41b) to prevent FEEL popup freeze
+
+## 3.35.0
+
+* `FIX`: prevent racing blur for FEEL-optional ([#461](https://github.com/bpmn-io/properties-panel/pull/461))
+* `FIX`: keep focus in FEEL-optional field after pasting FEEL expression ([#461](https://github.com/bpmn-io/properties-panel/pull/461))
+* `DEPS`: update to `@bpmn-io/feel-editor@2`
+
+## 3.34.0
+
+* `FEAT`: remove title attribute when unnecessary ([#455](https://github.com/bpmn-io/properties-panel/pull/455))
+* `FIX`: improve tooltip behavior ([#451](https://github.com/bpmn-io/properties-panel/pull/451))
+* `FIX`: correctly handle trimming and debouncing ([#450](https://github.com/bpmn-io/properties-panel/pull/450), [#309](https://github.com/bpmn-io/properties-panel/issues/309))
+
+## 3.33.2
+
+* `FIX`: remove empty values (`""`) also after blurring input fields([#449](https://github.com/bpmn-io/properties-panel/pull/449))
+
+## 3.33.1
+
+* `FIX`: use maximize icon in open popup button ([#438](https://github.com/bpmn-io/properties-panel/pull/444))
+
+## 3.33.0
+
+* `FEAT`: support multiline feel strings in `camunda` dialect ([@bpmn-io/lezer-feel#2](https://github.com/bpmn-io/lezer-feel/pull/2))
+* `FIX`: recognize unclosed feel string literal as syntax error ([nikku/lezer-feel#52](https://github.com/nikku/lezer-feel/pull/52))
+* `DEPS`: update to `@bpmn-io/feel-editor@1.12.0`
+
+## 3.32.0
+
+* `FEAT`: clarify dirty hint ([#432](https://github.com/bpmn-io/properties-panel/pull/432))
+
+## 3.31.1
+
+* `FIX`: make CSS selector of button in group header less specific to allow overriding ([#436](https://github.com/bpmn-io/properties-panel/pull/436))
+
+## 3.31.0
+
+* `FEAT`: update camunda built-ins (added `fromAi`) ([@camunda/feel-builtins#1](https://github.com/camunda/feel-builtins/pull/1))
+* `DEPS`: update to `@bpmn-io/feel-editor@1.11.0`
+
+## 3.30.2
+
+* `FIX`: `blur` should emit boolean value for checkboxes ([#430](https://github.com/bpmn-io/properties-panel/pull/430))
+
+## 3.30.1
+
+* `FIX`: allow tooltip on number field ([#429](https://github.com/bpmn-io/properties-panel/pull/429))
+
+## 3.30.0
+
+* `FEAT`: support providing FEEL language context (parserDialect, dialect, builtins) ([#417](https://github.com/bpmn-io/properties-panel/pull/417))
+
+## 3.29.1
+
+* `FIX`: fix cursor jumping issue ([#426](https://github.com/bpmn-io/properties-panel/pull/426))
+
+## 3.29.0
+
+* `FEAT`: make list headers sticky ([#397](https://github.com/bpmn-io/properties-panel/pull/397))
+* `FIX`: increase default debounce value ([#425](https://github.com/bpmn-io/properties-panel/pull/425))
+
+## 3.28.3
+
+* `FIX`: improve text inputs performance ([#424](https://github.com/bpmn-io/properties-panel/pull/424))
+
+## 3.28.2
+
+* `FIX`: flush debounced function when value helpers change ([#422](https://github.com/bpmn-io/properties-panel/pull/422))
+
+## 3.28.1
+
+* `FIX`: use new value helpers when rerendering an entry ([#421](https://github.com/bpmn-io/properties-panel/pull/421))
+
+## 3.28.0
+
+* `FEAT`: allow overriding FEEL popup ([#408](https://github.com/bpmn-io/properties-panel/issues/408))
+
+## 3.27.7
+
+* `FIX`: increase default debounce value ([#425](https://github.com/bpmn-io/properties-panel/pull/425))
+
+## 3.27.6
+
+* `FIX`: improve text inputs performance ([#424](https://github.com/bpmn-io/properties-panel/pull/424))
+## 3.27.5
+
+* `FIX`: flush debounced function when value helpers change ([#422](https://github.com/bpmn-io/properties-panel/pull/422))
+
+## 3.27.4
+
+* `FIX`: use new value helpers when rerendering an entry ([#421](https://github.com/bpmn-io/properties-panel/pull/421))
+
 ## 3.27.3
 
 * `FIX`: fix performance issue when typing fast ([#416](https://github.com/bpmn-io/properties-panel/pull/416))

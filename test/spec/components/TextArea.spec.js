@@ -1,7 +1,15 @@
+import { expect } from 'chai';
+
+import {
+  spy as sinonSpy,
+  stub as sinonStub
+} from 'sinon';
+
 import { act } from 'preact/test-utils';
 
 import {
-  render
+  render,
+  fireEvent
 } from '@testing-library/preact/pure';
 
 import { waitFor } from '@testing-library/preact';
@@ -19,7 +27,8 @@ import EventBus from 'diagram-js/lib/core/EventBus';
 import {
   changeInput,
   expectNoViolations,
-  insertCoreStyles
+  insertCoreStyles,
+  insertCSS
 } from 'test/TestHelper';
 
 import {
@@ -30,6 +39,7 @@ import {
 } from 'src/context';
 
 import TextArea, { isEdited } from 'src/components/entries/TextArea';
+import { debounce } from 'min-dash';
 
 insertCoreStyles();
 
@@ -92,7 +102,7 @@ describe('<TextArea>', function() {
   it('should update', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const result = createTextArea({ container, setValue: updateSpy });
 
@@ -135,10 +145,11 @@ describe('<TextArea>', function() {
     expect(input.dataset.gramm).to.eql('false');
   });
 
+
   it('should trim whitespace on blur', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
 
     const result = createTextArea({
       container,
@@ -148,21 +159,165 @@ describe('<TextArea>', function() {
     const input = domQuery('.bio-properties-panel-input', result.container);
 
     // when
-    input.focus();
-    changeInput(input, '  foo  ');
-    input.blur();
+    await act(() => {
+      input.focus();
+      changeInput(input, '  foo  ');
+      input.blur();
+    });
 
     // then
     expect(setValueSpy).to.have.been.calledTwice;
     expect(setValueSpy).to.have.been.calledWith('foo');
+    expect(input.value).to.equal('foo');
+  });
+
+
+  it('should set undefined on blur when trimmed value is empty', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextArea({
+      container,
+      getValue: () => '   ',
+      setValue: setValueSpy,
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    input.blur();
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith(undefined);
+  });
+
+
+  it('should immediately commit value once on blur (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextArea({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 0)
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    await act(() => {
+      input.focus();
+      changeInput(input, 'hello   ');
+      input.blur();
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1));
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith('hello');
+    expect(input.value).to.equal('hello');
+  });
+
+
+  it('should immediately commit value on keyboard shortcut (cmd+z) (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextArea({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 50) // 50ms debounce delay
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'test textarea value');
+
+    // simulate Cmd+Z before debounce expires
+    fireEvent.keyDown(input, {
+      key: 'z',
+      metaKey: true, // Cmd key on Mac
+      ctrlKey: false,
+      altKey: false
+    });
+
+    // then - should be called immediately without waiting for debounce
+    expect(setValueSpy).to.have.been.calledOnceWith('test textarea value');
+  });
+
+
+  it('should immediately commit value on keyboard shortcut (ctrl+z) (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextArea({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 50) // 50ms debounce delay
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'test textarea ctrl value');
+
+    // simulate Ctrl+Z before debounce expires (Windows/Linux)
+    fireEvent.keyDown(input, {
+      key: 'z',
+      metaKey: false,
+      ctrlKey: true, // Ctrl key on Windows/Linux
+      altKey: false
+    });
+
+    // then - should be called immediately without waiting for debounce
+    expect(setValueSpy).to.have.been.calledOnceWith('test textarea ctrl value');
+  });
+
+
+  it('should NOT throw when debounce does not provide flush', async function() {
+
+    // given
+    const result = createTextArea({
+      container,
+      getValue: () => '',
+      setValue: noop,
+      debounce: fn => fn // no .flush or .cancel on returned function
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'some value');
+
+    // then - should not throw
+    expect(() => {
+      fireEvent.keyDown(input, {
+        key: 'z',
+        metaKey: true,
+        ctrlKey: false,
+        altKey: false
+      });
+    }).not.to.throw();
   });
 
 
   it('should call onBlur if provided', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
-    const onBlurSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
+    const onBlurSpy = sinonSpy();
 
     const result = createTextArea({
       container,
@@ -182,13 +337,42 @@ describe('<TextArea>', function() {
   });
 
 
-  it('should not call setValue if the value is same', async function() {
+  it('should not call setValue or validate if the value is same', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
+    const validateSpy = sinonSpy();
 
     const result = createTextArea({
       container,
+      getValue: () => 'a value',
+      setValue: setValueSpy,
+      validate: validateSpy
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    validateSpy.resetHistory();
+    input.focus();
+    changeInput(input, 'a value');
+    input.blur();
+
+    // then
+    expect(setValueSpy).to.not.have.been.called;
+    expect(validateSpy).to.not.have.been.called;
+
+  });
+
+
+  it('should not call setValue if the value stays undefined or empty', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextArea({
+      container,
+      getValue: () => undefined,
       setValue: setValueSpy
     });
 
@@ -205,6 +389,184 @@ describe('<TextArea>', function() {
   });
 
 
+  describe('rerendering', function() {
+
+    it('should call new setValue if passed', function() {
+
+      // given
+      const updateSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextArea({ container, setValue: updateSpies[0] });
+
+      // when
+      createTextArea({ container, setValue: updateSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      changeInput(input, 'foo');
+
+      // then
+      expect(updateSpies[0]).not.to.have.been.called;
+      expect(updateSpies[1]).to.have.been.calledWith('foo');
+    });
+
+
+    it('should call new getValue if passed', function() {
+
+      // given
+      const element = undefined;
+      const getValueSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextArea({ container, getValue: getValueSpies[0] });
+
+      // when
+      createTextArea({ container, getValue: getValueSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      getValueSpies[0].resetHistory();
+
+      // and when
+      changeInput(input, 'foo');
+
+      // then
+      expect(getValueSpies[0]).not.to.have.been.called;
+      expect(getValueSpies[1]).to.have.been.calledWith(element);
+    });
+
+
+    it('should call new validate if passed', function() {
+
+      // given
+      const validateSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextArea({ container, validate: validateSpies[0] });
+
+      // when
+      createTextArea({ container, validate: validateSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      validateSpies[0].resetHistory();
+
+      // and when
+      changeInput(input, 'foo');
+
+      // then
+      expect(validateSpies[0]).not.to.have.been.called;
+      expect(validateSpies[1]).to.have.been.calledWith('foo');
+    });
+  });
+
+
+  describe('paste behavior', function() {
+
+    it('should trim pasted content when field is empty', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextArea({
+        container,
+        setValue: setValueSpy
+      });
+
+      const textarea = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      textarea.dispatchEvent(createPasteEvent('  trimmed\ncontent  '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('trimmed\ncontent');
+    });
+
+
+    it('should trim pasted content when all text is selected', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextArea({
+        container,
+        getValue: () => 'existing\ntext',
+        setValue: setValueSpy
+      });
+
+      const textarea = domQuery('.bio-properties-panel-input', result.container);
+
+      textarea.focus();
+      textarea.setSelectionRange(0, textarea.value.length);
+
+      // when
+      textarea.dispatchEvent(createPasteEvent('  new\ntrimmed content  '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('new\ntrimmed content');
+    });
+
+
+    it('should allow default paste behavior when cursor is positioned in text', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+      const onPasteSpy = sinonSpy();
+
+      const result = createTextArea({
+        container,
+        getValue: () => 'existing\ntext',
+        setValue: setValueSpy,
+        onPaste: onPasteSpy
+      });
+
+      const textarea = domQuery('.bio-properties-panel-input', result.container);
+
+      textarea.focus();
+      textarea.setSelectionRange(4, 4);
+
+      // when
+      textarea.dispatchEvent(createPasteEvent('  content  '));
+
+      // then
+      expect(onPasteSpy).to.have.been.called;
+    });
+
+
+    it('should call onPaste callback when provided', function() {
+
+      // given
+      const onPasteSpy = sinonSpy();
+
+      const result = createTextArea({
+        container,
+        onPaste: onPasteSpy
+      });
+
+      const textarea = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      textarea.dispatchEvent(createPasteEvent('test\ncontent'));
+
+      // then
+      expect(onPasteSpy).to.have.been.called;
+    });
+
+
+    it('should preserve newlines in pasted content', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextArea({
+        container,
+        setValue: setValueSpy
+      });
+
+      const textarea = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      textarea.dispatchEvent(createPasteEvent('  line 1  \n  line 2  \n  line 3  '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('line 1  \n  line 2  \n  line 3');
+    });
+
+  });
+
+
   describe('events', function() {
 
     it('should show entry', function() {
@@ -212,7 +574,7 @@ describe('<TextArea>', function() {
       // given
       const eventBus = new EventBus();
 
-      const onShowSpy = sinon.spy();
+      const onShowSpy = sinonSpy();
 
       createTextArea({
         container,
@@ -226,6 +588,248 @@ describe('<TextArea>', function() {
 
       // then
       expect(onShowSpy).to.have.been.called;
+    });
+
+  });
+
+
+  describe('popup', function() {
+
+    it('should render open popup button', function() {
+
+      // when
+      const result = createTextArea({ container });
+
+      // then
+      expect(domQuery('.bio-properties-panel-open-feel-popup', result.container)).to.exist;
+    });
+
+
+    it('should NOT render open popup button when disabled', function() {
+
+      // when
+      const result = createTextArea({ container, disabled: true });
+
+      // then
+      expect(domQuery('.bio-properties-panel-open-feel-popup', result.container)).not.to.exist;
+    });
+
+
+    it('should fire <propertiesPanel.openPopup> on button click', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      let context;
+
+      eventBus.on('propertiesPanel.openPopup', (event, ctx) => {
+        context = ctx;
+        return true;
+      });
+
+      const result = createTextArea({
+        container,
+        eventBus,
+        id: 'foo',
+        label: 'Foo',
+        getValue: () => 'bar'
+      });
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      // when
+      fireEvent.click(button);
+
+      // then
+      expect(context).to.include({
+        entryId: 'foo',
+        label: 'Foo',
+        value: 'bar'
+      });
+    });
+
+
+    it('should show placeholder when popup is open', async function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      eventBus.on('propertiesPanel.openPopup', () => true);
+
+      const result = createTextArea({ container, eventBus });
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      // when
+      await act(() => {
+        fireEvent.click(button);
+      });
+
+      // then
+      const containerNode = domQuery('.bio-properties-panel-textarea-container', result.container);
+
+      expect(domClasses(containerNode).has('popupOpen')).to.be.true;
+      expect(domQuery('.bio-properties-panel-textarea__open-popup-placeholder', result.container)).to.exist;
+    });
+
+
+    it('should respect original textarea height when popup is open', async function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      eventBus.on('propertiesPanel.openPopup', () => true);
+
+      const result = createTextArea({
+        container,
+        eventBus,
+        id: 'textarea',
+        autoResize: true,
+        getValue: () => 'foo\nbar\nbaz\nqux'
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // wait for the textarea to auto resize to its content
+      await waitFor(() => {
+        expect(input.clientHeight).to.be.greaterThan(60);
+      });
+
+      const originalHeight = input.getBoundingClientRect().height;
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      // when
+      await act(() => {
+        fireEvent.click(button);
+      });
+
+      // then
+      const placeholder = domQuery(
+        '.bio-properties-panel-textarea__open-popup-placeholder',
+        result.container
+      );
+
+      expect(placeholder.getBoundingClientRect().height).to.be.closeTo(originalHeight, 5);
+    });
+
+
+    it('should commit value edited in popup', function() {
+
+      // given
+      const eventBus = new EventBus();
+      const setValueSpy = sinonSpy();
+
+      let popupInput;
+
+      eventBus.on('propertiesPanel.openPopup', (event, ctx) => {
+        popupInput = ctx.onInput;
+        return true;
+      });
+
+      const result = createTextArea({
+        container,
+        eventBus,
+        getValue: () => '',
+        setValue: setValueSpy
+      });
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      fireEvent.click(button);
+
+      // when
+      popupInput('edited in popup');
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('edited in popup');
+    });
+
+
+    it('should reflect clearing contents in popup', async function() {
+
+      // given
+      const eventBus = new EventBus();
+      const setValueSpy = sinonSpy();
+
+      let popupInput;
+
+      eventBus.on('propertiesPanel.openPopup', (event, ctx) => {
+        popupInput = ctx.onInput;
+        return true;
+      });
+
+      const result = createTextArea({
+        container,
+        eventBus,
+        id: 'textarea',
+        getValue: () => '',
+        setValue: setValueSpy
+      });
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      fireEvent.click(button);
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      // type and then clear back to the value present when the popup opened
+      await act(() => popupInput('foo'));
+      await act(() => popupInput(''));
+
+      // then
+      // clearing is reflected, old value is not restored
+      expect(input.value).to.eql('');
+      expect(setValueSpy).to.have.been.calledWith(undefined);
+    });
+
+
+    it('should reset open state on <propertiesPanelPopup.close>', async function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      eventBus.on('propertiesPanel.openPopup', () => true);
+
+      const result = createTextArea({ container, eventBus });
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      await act(() => {
+        fireEvent.click(button);
+      });
+
+      const containerNode = domQuery('.bio-properties-panel-textarea-container', result.container);
+
+      // assume
+      expect(domClasses(containerNode).has('popupOpen')).to.be.true;
+
+      // when
+      await act(() => {
+        eventBus.fire('propertiesPanelPopup.close');
+      });
+
+      // then
+      expect(domClasses(containerNode).has('popupOpen')).to.be.false;
+    });
+
+
+    it('should fire <propertiesPanel.closePopup> on unmount', function() {
+
+      // given
+      const eventBus = new EventBus();
+      const closeSpy = sinonSpy();
+
+      eventBus.on('propertiesPanel.closePopup', closeSpy);
+
+      const result = createTextArea({ container, eventBus });
+
+      // when
+      result.unmount();
+
+      // then
+      expect(closeSpy).to.have.been.calledOnce;
     });
 
   });
@@ -466,7 +1070,7 @@ describe('<TextArea>', function() {
     it('should NOT discard invalid input', function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
       const validate = () => 'error';
 
       const result = createTextArea({ container, validate, setValue: setValueSpy });
@@ -565,11 +1169,16 @@ describe('<TextArea>', function() {
     it('should NOT resize on single line input when initially was display: none', function() {
 
       // given
-      const parent = domify('<div style="display: none;"></div>');
+      const parent = domify('<div class="test-textarea-boxsizing-scope" style="display: none;"></div>');
       container.appendChild(parent);
 
-      const style = domify('<style>.bio-properties-panel-input { box-sizing: border-box; }</style>');
-      parent.appendChild(style);
+      // scope the box-sizing override to this test's subtree so it does not
+      // leak `border-box` onto `.bio-properties-panel-input` elements in other
+      // specs (which share the same document)
+      insertCSS(
+        'test-textarea-boxsizing.css',
+        '.test-textarea-boxsizing-scope .bio-properties-panel-input { box-sizing: border-box; }'
+      );
 
       const result = createTextArea({
         container: parent,
@@ -620,6 +1229,46 @@ describe('<TextArea>', function() {
       });
     });
 
+
+    it('should resize on value edited in popup', async function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      let popupInput;
+
+      eventBus.on('propertiesPanel.openPopup', (event, ctx) => {
+        popupInput = ctx.onInput;
+        return true;
+      });
+
+      const result = createTextArea({
+        container,
+        eventBus,
+        id: 'textarea',
+        autoResize: true,
+        getValue: () => 'foo'
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      const button = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+      await act(() => {
+        fireEvent.click(button);
+      });
+
+      const initialHeight = input.clientHeight;
+
+      // when
+      await act(() => {
+        popupInput('foo\nbar\nbaz\nqux');
+      });
+
+      // then
+      expect(input.clientHeight).to.be.greaterThan(initialHeight);
+    });
+
   });
 
 
@@ -645,6 +1294,18 @@ describe('<TextArea>', function() {
 
 
 // helpers ////////////////////
+
+function createPasteEvent(text) {
+  const pasteEvent = new ClipboardEvent('paste', {
+    bubbles: true,
+    cancelable: true,
+    clipboardData: new DataTransfer()
+  });
+
+  sinonStub(pasteEvent.clipboardData, 'getData').withArgs('text').returns(text);
+
+  return pasteEvent;
+}
 
 function createTextArea(options = {}, renderFn = render) {
   const {

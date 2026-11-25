@@ -2,13 +2,17 @@ import classNames from 'classnames';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 
-import FeelEditor from '@bpmn-io/feel-editor';
+import Editor from '@bpmn-io/feel-editor';
 
 import { EditorView, lineNumbers } from '@codemirror/view';
 
 import { useStaticCallback } from '../../../hooks';
 
-import { PopupIcon } from '../../icons';
+import { OpenPopupButton } from '../../OpenPopupButton';
+
+import translateFallback from '../../util/translateFallback';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 const noop = () => {};
 
@@ -41,32 +45,47 @@ const useBufferedFocus = function(editor, ref) {
   }, [ editor, buffer ]);
 };
 
-const CodeEditor = forwardRef((props, ref) => {
+const FeelEditor = forwardRef((props, ref) => {
 
   const {
     contentAttributes,
     enableGutters,
     value,
     onInput,
+    onKeyDown: onKeyDownProp = noop,
+    onBlur = noop,
     onFeelToggle = noop,
     onLint = noop,
-    onPopupOpen = noop,
+    onOpenPopup = noop,
     placeholder,
     popupOpen,
     disabled,
     tooltipContainer,
-    variables
+    variables,
+    feelLanguageContext,
+    translate = translateFallback
   } = props;
 
   const inputRef = useRef();
   const [ editor, setEditor ] = useState();
   const [ localValue, setLocalValue ] = useState(value || '');
 
+  const {
+    builtins,
+    dialect,
+    parserDialect,
+    engines
+  } = feelLanguageContext || {};
+
   useBufferedFocus(editor, ref);
 
   const handleInput = useStaticCallback(newValue => {
     onInput(newValue);
     setLocalValue(newValue);
+  });
+
+  const handleBlur = useStaticCallback(() => {
+    onBlur();
   });
 
   useEffect(() => {
@@ -79,6 +98,10 @@ const CodeEditor = forwardRef((props, ref) => {
      * - AND the cursor is at the beginning of the input
      */
     const onKeyDown = e => {
+
+      // Call parent onKeyDown handler first
+      onKeyDownProp(e);
+
       if (e.key !== 'Backspace' || !editor) {
         return;
       }
@@ -91,18 +114,24 @@ const CodeEditor = forwardRef((props, ref) => {
       }
     };
 
-    editor = new FeelEditor({
+    editor = new Editor({
       container: inputRef.current,
       onChange: handleInput,
       onKeyDown: onKeyDown,
       onLint: onLint,
       placeholder: placeholder,
+      readOnly: disabled,
       tooltipContainer: tooltipContainer,
       value: localValue,
-      variables: variables,
+      variables,
+      builtins,
+      dialect,
+      parserDialect,
+      engines,
       extensions: [
         ...enableGutters ? [ lineNumbers() ] : [],
-        EditorView.lineWrapping
+        EditorView.lineWrapping,
+        EditorView.domEventHandlers({ blur: handleBlur })
       ],
       contentAttributes
     });
@@ -147,6 +176,14 @@ const CodeEditor = forwardRef((props, ref) => {
     editor.setPlaceholder(placeholder);
   }, [ placeholder ]);
 
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    editor.setEngines(engines);
+  }, [ engines ]);
+
   const handleClick = () => {
     ref.current.focus();
   };
@@ -156,19 +193,20 @@ const CodeEditor = forwardRef((props, ref) => {
     disabled ? 'disabled' : null,
     popupOpen ? 'popupOpen' : null)
   }>
-    <div class="bio-properties-panel-feel-editor__open-popup-placeholder">Opened in editor</div>
+    {
+      popupOpen && <div class="bio-properties-panel-feel-editor__open-popup-placeholder">{ translate('Opened in editor') }</div>
+    }
     <div
       name={ props.name }
       class={ classNames('bio-properties-panel-input', localValue ? 'edited' : null) }
       ref={ inputRef }
       onClick={ handleClick }
     ></div>
-    <button
-      type="button"
-      title="Open pop-up editor"
-      class="bio-properties-panel-open-feel-popup"
-      onClick={ () => onPopupOpen() }><PopupIcon /></button>
+    {!disabled && <OpenPopupButton
+      onClick={ () => onOpenPopup('feel') }
+      translate={ translate }
+    /> }
   </div>;
 });
 
-export default CodeEditor;
+export default FeelEditor;

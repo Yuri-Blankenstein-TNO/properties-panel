@@ -5,11 +5,15 @@ import {
   useState
 } from 'preact/hooks';
 
+import { createPortal } from 'preact/compat';
+
+import { query as domQuery } from 'min-dom';
+
 import { LspPopupContext } from './context';
 
 import { usePrevious } from '../../../hooks';
 
-import { Popup } from '../../Popup';
+import { Popup } from '../../../features/popup/components/Popup';
 
 import CodeEditor from './LspEditor';
 
@@ -198,11 +202,9 @@ function LspPopupComponent(props) {
     }
   }, [ editorRef ]);
 
-  return (
+  return createPortal(
     <Popup
-      container={ container }
       className="bio-properties-panel-feel-popup"
-      emit={ emit }
       position={ position }
       title={ title }
       onClose={ onClose }
@@ -212,13 +214,12 @@ function LspPopupComponent(props) {
       closeOnEscape={ false }
       delayInitialFocus={ false }
       onPostDeactivate={ handleSetReturnFocus }
-      height={ position.height || LSP_POPUP_HEIGHT }
-      width={ position.width || LSP_POPUP_WIDTH }
+      height={ position?.height || LSP_POPUP_HEIGHT }
+      width={ position?.width || LSP_POPUP_WIDTH }
       ref={ popupRef }
     >
       <Popup.Title
         title={ title }
-        emit={ emit }
         showCloseButton={ true }
         closeButtonTooltip="Save and close"
         onClose={ onClose }
@@ -257,7 +258,8 @@ function LspPopupComponent(props) {
           />
         </div>
       </Popup.Body>
-    </Popup>
+    </Popup>,
+    getContainer(container)
   );
 }
 
@@ -265,6 +267,14 @@ function LspPopupComponent(props) {
 
 function prefixId(id) {
   return `bio-properties-panel-${id}`;
+}
+
+function getContainer(container) {
+  if (typeof container === 'string') {
+    return domQuery(container) || document.body;
+  }
+
+  return container || document.body;
 }
 
 function autoCompletionOpen(element) {

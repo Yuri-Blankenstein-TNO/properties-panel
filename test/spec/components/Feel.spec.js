@@ -1,8 +1,18 @@
+import { expect } from 'chai';
+
+import {
+  spy as sinonSpy,
+  stub as sinonStub,
+  useFakeTimers
+} from 'sinon';
+
 import { act } from 'preact/test-utils';
 
 import { waitFor } from '@testing-library/dom';
+
 import {
-  render
+  render,
+  fireEvent
 } from '@testing-library/preact/pure';
 
 import TestContainer from 'mocha-test-container-support';
@@ -25,27 +35,25 @@ import {
   DescriptionContext,
   ErrorsContext,
   EventContext,
+  FeelLanguageContext,
   PropertiesPanelContext
 } from 'src/context';
-
-import {
-  FeelPopupContext
-} from 'src/components/entries/FEEL/context';
 
 import FeelField, {
   FeelCheckboxEntry,
   FeelNumberEntry,
+  FeelTemplatingEntry,
   FeelTextAreaEntry,
   FeelToggleSwitchEntry,
   isEdited
 } from 'src/components/entries/FEEL';
+import { debounce } from 'min-dash';
 
 insertCoreStyles();
 
 const noop = () => {};
 
-describe('<FeelField>', function() {
-
+describe('<FeelEntry>', function() {
   let container;
 
   beforeEach(function() {
@@ -78,7 +86,7 @@ describe('<FeelField>', function() {
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelField({ container, setValue: updateSpy });
 
@@ -95,8 +103,7 @@ describe('<FeelField>', function() {
     it('should trim whitespace on blur', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
-
+      const setValueSpy = sinonSpy();
       const result = createFeelField({
         container,
         setValue: setValueSpy
@@ -105,25 +112,186 @@ describe('<FeelField>', function() {
       const input = domQuery('.bio-properties-panel-input', result.container);
 
       // when
-      input.focus();
-      changeInput(input, '  foo  ');
-      input.blur();
+      await act(() => {
+        input.focus();
+        changeInput(input, '  foo  ');
+        input.blur();
+      });
 
       // then
       expect(setValueSpy).to.have.been.calledTwice;
       expect(setValueSpy).to.have.been.calledWith('foo');
+      expect(input.value).to.equal('foo');
+    });
+
+
+    it('should set undefined on blur when trimmed value is empty', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+      const result = createFeelField({
+        container,
+        getValue: () => '   ',
+        setValue: setValueSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      input.blur();
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith(undefined);
+    });
+
+
+    it('should immediately commit value once on blur (debounce)', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        getValue: () => '',
+        setValue: setValueSpy,
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'hello   ');
+      input.blur();
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith('hello');
+    });
+
+
+    it('should not commit again on blur if already committed (debounce)', async function() {
+
+      // given
+      let currentValue = '';
+      const setValueSpy = sinonSpy((newValue) => { currentValue = newValue; });
+
+      const result = createFeelField({
+        container,
+        getValue: () => currentValue,
+        setValue: setValueSpy,
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'hello');
+
+      waitFor(() => expect(setValueSpy).to.have.been.calledOnce);
+
+      input.blur();
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnce;
+    });
+
+
+    it('should immediately commit value on keyboard shortcut (cmd+z) (debounce)', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        getValue: () => '',
+        setValue: setValueSpy,
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'test feel value');
+
+      fireEvent.keyDown(input, {
+        key: 'z',
+        metaKey: true,
+        ctrlKey: false,
+        altKey: false
+      });
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith('test feel value');
+    });
+
+
+    it('should immediately commit value on keyboard shortcut (ctrl+z) (debounce)', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        getValue: () => '',
+        setValue: setValueSpy,
+        debounce: fn => debounce(fn, 50) // 50ms debounce delay
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'test feel ctrl value');
+      fireEvent.keyDown(input, {
+        key: 'z',
+        metaKey: false,
+        ctrlKey: true,
+        altKey: false
+      });
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith('test feel ctrl value');
+    });
+
+
+    it('should NOT throw when debounce does not provide flush', async function() {
+
+      // given
+      const result = createFeelField({
+        container,
+        getValue: () => '',
+        setValue: noop,
+        debounce: fn => fn // no .flush or .cancel on returned function
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'some value');
+
+      // then - should not throw
+      expect(() => {
+        fireEvent.keyDown(input, {
+          key: 'z',
+          metaKey: true,
+          ctrlKey: false,
+          altKey: false
+        });
+      }).not.to.throw();
     });
 
 
     it('should call onBlur if provided', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
-      const onBlurSpy = sinon.spy();
+      const onBlurSpy = sinonSpy();
 
       const result = createFeelField({
         container,
-        setValue: setValueSpy,
         onBlur: onBlurSpy
       });
 
@@ -131,7 +299,6 @@ describe('<FeelField>', function() {
 
       // when
       input.focus();
-      changeInput(input, '  foo  ');
       input.blur();
 
       // then
@@ -142,10 +309,11 @@ describe('<FeelField>', function() {
     it('should not call setValue if the value is same', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
 
       const result = createFeelField({
         container,
+        getValue: () => 'a value',
         setValue: setValueSpy
       });
 
@@ -153,12 +321,75 @@ describe('<FeelField>', function() {
 
       // when
       input.focus();
-      changeInput(input, '');
+      changeInput(input, 'a value');
       input.blur();
 
       // then
       expect(setValueSpy).to.not.have.been.called;
+    });
 
+
+    describe('rerendering', function() {
+
+      it('should call new setValue if passed', function() {
+
+        // given
+        const updateSpies = [ sinonSpy(), sinonSpy() ];
+
+        const firstRender = createFeelField({ container, setValue: updateSpies[0] });
+
+        // when
+        createFeelField({ container, setValue: updateSpies[1] }, firstRender.rerender);
+        const input = domQuery('.bio-properties-panel-input', firstRender.container);
+        changeInput(input, 'foo');
+
+        // then
+        expect(updateSpies[0]).not.to.have.been.called;
+        expect(updateSpies[1]).to.have.been.calledWith('foo');
+      });
+
+
+      it('should call new getValue if passed', function() {
+
+        // given
+        const element = undefined;
+        const getValueSpies = [ sinonSpy(), sinonSpy() ];
+
+        const firstRender = createFeelField({ container, getValue: getValueSpies[0] });
+
+        // when
+        createFeelField({ container, getValue: getValueSpies[1] }, firstRender.rerender);
+        const input = domQuery('.bio-properties-panel-input', firstRender.container);
+        getValueSpies[0].resetHistory();
+
+        // and when
+        changeInput(input, 'foo');
+
+        // then
+        expect(getValueSpies[0]).not.to.have.been.called;
+        expect(getValueSpies[1]).to.have.been.calledWith(element);
+      });
+
+
+      it('should call new validate if passed', function() {
+
+        // given
+        const validateSpies = [ sinonSpy(), sinonSpy() ];
+
+        const firstRender = createFeelField({ container, validate: validateSpies[0] });
+
+        // when
+        createFeelField({ container, validate: validateSpies[1] }, firstRender.rerender);
+        const input = domQuery('.bio-properties-panel-input', firstRender.container);
+        validateSpies[0].resetHistory();
+
+        // and when
+        changeInput(input, 'foo');
+
+        // then
+        expect(validateSpies[0]).not.to.have.been.called;
+        expect(validateSpies[1]).to.have.been.calledWith('foo');
+      });
     });
 
 
@@ -238,7 +469,7 @@ describe('<FeelField>', function() {
         // given
         const eventBus = new EventBus();
 
-        const onShowSpy = sinon.spy();
+        const onShowSpy = sinonSpy();
 
         createFeelField({ id: 'foo', container, eventBus, onShow: onShowSpy });
 
@@ -350,7 +581,7 @@ describe('<FeelField>', function() {
       it('should pass error to `setValue`', function() {
 
         // given
-        const setValueSpy = sinon.spy();
+        const setValueSpy = sinonSpy();
         const validate = () => 'error';
 
         const result = createFeelField({ container, validate, setValue: setValueSpy });
@@ -535,7 +766,7 @@ describe('<FeelField>', function() {
       it('should toggle feel active', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelField({
           container,
@@ -556,13 +787,72 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=foo');
-          expect(domQuery('.bio-properties-panel-feel-editor-container', field.container)).to.exist;
+          expect(getEditor(field.container)).to.exist;
+        });
+      });
+
+
+      it('should commit current input value when toggling FEEL with pending debounce', async function() {
+
+        // given
+        const setValueSpy = sinonSpy();
+
+        const field = createFeelField({
+          container,
+          id: 'feelField',
+          feel: 'optional',
+          getValue: () => '',
+          setValue: setValueSpy,
+          debounce: fn => debounce(fn, 50)
+        });
+
+        const input = domQuery('.bio-properties-panel-input', field.container);
+        const icon = domQuery('[data-entry-id="feelField"] .bio-properties-panel-feel-icon',
+          field.container);
+
+        // when
+        changeInput(input, 'bar');
+        expect(setValueSpy).not.to.have.been.called;
+
+        await act(() => {
+          icon.click();
+        });
+
+        // then
+        return waitFor(() => {
+          expect(setValueSpy).to.have.been.calledWith('=bar');
+        });
+      });
+
+
+      it('should toggle feel disabled if enabled per default', async function() {
+
+        // given
+        const field = createFeelField({
+          container,
+          id: 'feelField',
+          feel: 'optional-default-enabled',
+          getValue: () => '',
+          setValue: () => {}
+        });
+
+        const icon = domQuery('[data-entry-id="feelField"] .bio-properties-panel-feel-icon',
+          field.container);
+
+        // when
+        await act(() => {
+          icon.click();
+        });
+
+        // then
+        return waitFor(() => {
+          expect(getEditor(field.container)).not.to.exist;
         });
       });
 
 
       it('should toggle on input', function() {
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const result = createFeelField({
           container,
@@ -577,7 +867,7 @@ describe('<FeelField>', function() {
 
         // then
         expect(updateSpy).to.have.been.calledWith('=foo');
-        expect(domQuery('.bio-properties-panel-feel-editor-container', container)).to.exist;
+        expect(getEditor(container)).to.exist;
 
       });
 
@@ -585,7 +875,7 @@ describe('<FeelField>', function() {
       it('should toggle on paste with FEEL mime type', function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const result = createFeelField({
           container,
@@ -613,6 +903,265 @@ describe('<FeelField>', function() {
         });
       });
 
+
+      it('should trim pasted content when field is empty (non-FEEL)', function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          setValue: updateSpy
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('  trimmed content  '));
+
+        // then
+        expect(updateSpy).to.have.been.calledWith('trimmed content');
+      });
+
+
+      it('should convert to FEEL when pasting content starting with =', function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          setValue: updateSpy
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('  =expression  '));
+
+        // then
+        expect(updateSpy).to.have.been.calledWith('=expression');
+
+        // Should also toggle to FEEL mode
+        return waitFor(() => {
+          expect(getEditor(result.container)).to.exist;
+        });
+      });
+
+
+      it('should trim pasted content when all text is selected (non-FEEL)', function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => 'existing text',
+          setValue: updateSpy
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        input.focus();
+        input.setSelectionRange(0, input.value.length);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('  new trimmed content  '));
+
+        // then
+        expect(updateSpy).to.have.been.calledWith('new trimmed content');
+      });
+
+
+      it('should preserve FEEL toggle when pasting FEEL expression and then blurring', async function() {
+
+        // given
+        const setValueSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => '',
+          setValue: setValueSpy,
+          debounce: fn => debounce(fn, 50)
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        expect(getEditor(result.container)).to.not.exist;
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('=test'));
+
+        await waitFor(() => {
+          expect(getEditor(result.container)).to.exist;
+        });
+
+        input.blur();
+
+        // then
+        expect(getEditor(result.container)).to.exist;
+        expect(setValueSpy).to.have.been.calledWith('=test');
+      });
+
+
+      it('should commit pasted value immediately (debounce)', function() {
+
+        // given
+        const setValueSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => '',
+          setValue: setValueSpy,
+          debounce: fn => debounce(fn, 50)
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('=test'));
+
+        // then
+        expect(setValueSpy).to.have.been.calledOnceWith('=test');
+      });
+
+
+      it('should not commit previously typed value after pasting FEEL expression', async function() {
+
+        // given
+        const setValueSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => '',
+          setValue: setValueSpy,
+          debounce: fn => debounce(fn, 50)
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        changeInput(input, 'abc');
+        expect(setValueSpy).not.to.have.been.called;
+
+        input.focus();
+        input.setSelectionRange(0, input.value.length);
+        input.dispatchEvent(createFeelPasteEvent('=xyz'));
+
+        // then
+        expect(setValueSpy).to.have.been.calledWith('=xyz');
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(setValueSpy).not.to.have.been.calledWith('abc');
+      });
+
+
+      it('should preserve pasted FEEL expression on blur', async function() {
+
+        // given
+        const setValueSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => '',
+          setValue: setValueSpy,
+          debounce: fn => debounce(fn, 50)
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        expect(getEditor(result.container)).to.not.exist;
+
+        // when
+        await act(() => {
+          input.dispatchEvent(createFeelPasteEvent('=test'));
+          input.blur();
+        });
+
+        // then
+        return waitFor(() => {
+          expect(getEditor(result.container)).to.exist;
+          expect(setValueSpy).to.have.been.calledWith('=test');
+          expect(setValueSpy).not.to.have.been.calledWith(undefined);
+        });
+      });
+
+    });
+
+
+    it('should persist plain input value on unmount', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        setValue: setValueSpy,
+        feel: 'optional',
+        getValue: () => '',
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      changeInput(input, 'hello');
+      expect(setValueSpy).not.to.have.been.called;
+
+      // when
+      await act(() => {
+        result.unmount();
+      });
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('hello');
+    });
+
+  });
+
+
+  describe('FEEL disabled (FeelTemplatingEntry)', function() {
+
+    describe('paste', function() {
+
+      it('should not override content on paste for templating editor', async function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelField({
+          container,
+          feel: 'optional',
+          getValue: () => 'bar',
+          setValue: updateSpy,
+          Component: FeelTemplatingEntry
+        });
+
+        const editor = await waitFor(() => {
+          const el = domQuery('.cm-content', result.container);
+          expect(el).to.exist;
+          return el;
+        });
+
+        updateSpy.resetHistory();
+
+        // when - paste 'foo' into editor containing 'bar'
+        editor.dispatchEvent(createFeelPasteEvent('foo'));
+
+        // then - value should contain both original and pasted text
+        await waitFor(() => {
+          expect(updateSpy).to.have.been.called;
+          const calledValue = updateSpy.lastCall.args[0];
+          expect(calledValue).to.equal('foobar');
+        });
+      });
+
     });
 
   });
@@ -630,10 +1179,78 @@ describe('<FeelField>', function() {
     });
 
 
+    it('should render as FEEL disabled for optional-default-enabled and value = 0', async function() {
+
+      // given
+      const field = createFeelNumber({
+        container,
+        feel: 'optional-default-enabled',
+        getValue: () => 0,
+        setValue: () => {}
+      });
+
+      // then
+      expect(getEditor(field.container)).not.to.exist;
+    });
+
+
+    describe('convert to FEEL on =', function() {
+
+      it('should convert empty field', async function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelNumber({ container, setValue: updateSpy });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        fireEvent.keyDown(input, { key: '=' });
+
+        // then
+        await waitFor(() => expect(getEditor(result.container)).to.exist);
+
+        expect(domQuery('input[type="number"]', result.container)).not.to.exist;
+      });
+
+
+      it('should NOT convert on Ctrl+=', function() {
+
+        // given
+        const result = createFeelNumber({ container });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        fireEvent.keyDown(input, { key: '=', ctrlKey: true });
+
+        // then
+        expect(getEditor(result.container)).not.to.exist;
+      });
+
+
+      it('should NOT convert non-empty field', function() {
+
+        // given
+        const result = createFeelNumber({ container, getValue: () => 5 });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        fireEvent.keyDown(input, { key: '=' });
+
+        // then
+        expect(getEditor(result.container)).not.to.exist;
+        expect(domQuery('input[type="number"]', result.container)).to.exist;
+      });
+    });
+
+
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelNumber({ container, setValue: updateSpy });
 
@@ -650,7 +1267,7 @@ describe('<FeelField>', function() {
     it('should update (floating point number)', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelNumber({ container, setValue: updateSpy, step: 'any' });
 
@@ -667,7 +1284,7 @@ describe('<FeelField>', function() {
     it('should update (0)', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelNumber({ container, setValue: updateSpy, step: 'any' });
 
@@ -757,7 +1374,7 @@ describe('<FeelField>', function() {
         // given
         const eventBus = new EventBus();
 
-        const onShowSpy = sinon.spy();
+        const onShowSpy = sinonSpy();
 
         createFeelNumber({ id: 'foo', container, eventBus, onShow: onShowSpy });
 
@@ -869,7 +1486,7 @@ describe('<FeelField>', function() {
       it('should pass error to `setValue`', function() {
 
         // given
-        const setValueSpy = sinon.spy();
+        const setValueSpy = sinonSpy();
         const validate = () => 'error';
 
         const result = createFeelNumber({ container, validate, setValue: setValueSpy });
@@ -1033,7 +1650,7 @@ describe('<FeelField>', function() {
       it('should toggle feel active', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelNumber({
           container,
@@ -1054,7 +1671,7 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=2');
-          expect(domQuery('.bio-properties-panel-feel-editor-container', field.container)).to.exist;
+          expect(getEditor(field.container)).to.exist;
         });
       });
 
@@ -1062,7 +1679,7 @@ describe('<FeelField>', function() {
       it('should toggle on paste with FEEL mime type', function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const result = createFeelField({
           container,
@@ -1087,6 +1704,53 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=2');
+        });
+      });
+
+
+      it('should trim pasted number content when field is empty', function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelNumber({
+          container,
+          feel: 'optional',
+          setValue: updateSpy
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('  123  '));
+
+        // then
+        expect(updateSpy).to.have.been.calledWith('123');
+      });
+
+
+      it('should convert to FEEL when pasting number expression starting with =', function() {
+
+        // given
+        const updateSpy = sinonSpy();
+
+        const result = createFeelNumber({
+          container,
+          feel: 'optional',
+          setValue: updateSpy
+        });
+
+        const input = domQuery('.bio-properties-panel-input', result.container);
+
+        // when
+        input.dispatchEvent(createFeelPasteEvent('  =42 + 8  '));
+
+        // then
+        expect(updateSpy).to.have.been.calledWith('=42 + 8');
+
+        // Should also toggle to FEEL mode
+        return waitFor(() => {
+          expect(getEditor(result.container)).to.exist;
         });
       });
 
@@ -1134,7 +1798,7 @@ describe('<FeelField>', function() {
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelTextArea({ container, setValue: updateSpy });
 
@@ -1151,7 +1815,7 @@ describe('<FeelField>', function() {
     it('should trim whitespace on blur', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
 
       const result = createFeelTextArea({
         container,
@@ -1161,21 +1825,75 @@ describe('<FeelField>', function() {
       const input = domQuery('.bio-properties-panel-input', result.container);
 
       // when
-      input.focus();
-      changeInput(input, '  foo  ');
-      input.blur();
+      await act(() => {
+        input.focus();
+        changeInput(input, '  foo  ');
+        input.blur();
+      });
 
       // then
       expect(setValueSpy).to.have.been.calledTwice;
       expect(setValueSpy).to.have.been.calledWith('foo');
+      expect(input.value).to.equal('foo');
+    });
+
+
+    it('should set undefined on blur when trimmed value is empty', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelTextArea({
+        container,
+        getValue: () => '   ',
+        setValue: setValueSpy,
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      input.blur();
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith(undefined);
+    });
+
+
+    it('should immediately commit value once on blur (debounce)', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelTextArea({
+        container,
+        getValue: () => '',
+        setValue: setValueSpy,
+        debounce: fn => debounce(fn, 0)
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      await act(() => {
+        input.focus();
+        changeInput(input, 'hello   ');
+        input.blur();
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1));
+
+      // then
+      expect(setValueSpy).to.have.been.calledOnceWith('hello');
+      expect(input.value).to.equal('hello');
     });
 
 
     it('should call onBlur if provided', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
-      const onBlurSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
+      const onBlurSpy = sinonSpy();
 
       const result = createFeelTextArea({
         container,
@@ -1198,10 +1916,35 @@ describe('<FeelField>', function() {
     it('should not call setValue if the value is same', async function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
 
       const result = createFeelTextArea({
         container,
+        getValue: () => 'a value',
+        setValue: setValueSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      changeInput(input, 'a value');
+      input.blur();
+
+      // then
+      expect(setValueSpy).to.not.have.been.called;
+
+    });
+
+
+    it('should not call setValue if the value stays undefined or empty', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelTextArea({
+        container,
+        getValue: () => undefined,
         setValue: setValueSpy
       });
 
@@ -1277,7 +2020,7 @@ describe('<FeelField>', function() {
         // given
         const eventBus = new EventBus();
 
-        const onShowSpy = sinon.spy();
+        const onShowSpy = sinonSpy();
 
         createFeelTextArea({ id: 'foo', container, eventBus, onShow: onShowSpy });
 
@@ -1390,7 +2133,7 @@ describe('<FeelField>', function() {
       it('should pass error to `setValue`', function() {
 
         // given
-        const setValueSpy = sinon.spy();
+        const setValueSpy = sinonSpy();
         const validate = () => 'error';
 
         const result = createFeelTextArea({ container, validate, setValue: setValueSpy });
@@ -1555,7 +2298,7 @@ describe('<FeelField>', function() {
       it('should toggle feel active', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelTextArea({
           container,
@@ -1576,13 +2319,13 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=foo');
-          expect(domQuery('.bio-properties-panel-feel-editor-container', field.container)).to.exist;
+          expect(getEditor(field.container)).to.exist;
         });
       });
 
 
       it('should toggle on input', function() {
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const result = createFeelTextArea({
           container,
@@ -1597,7 +2340,7 @@ describe('<FeelField>', function() {
 
         // then
         expect(updateSpy).to.have.been.calledWith('=foo');
-        expect(domQuery('.bio-properties-panel-feel-editor-container', container)).to.exist;
+        expect(getEditor(container)).to.exist;
 
       });
 
@@ -1619,10 +2362,25 @@ describe('<FeelField>', function() {
     });
 
 
+    it('should render as FEEL disabled for optional-default-enabled and value = false', async function() {
+
+      // given
+      const field = createFeelNumber({
+        container,
+        feel: 'optional-default-enabled',
+        getValue: () => false,
+        setValue: () => {}
+      });
+
+      // then
+      expect(getEditor(field.container)).not.to.exist;
+    });
+
+
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelToggleSwitch({ container, setValue: updateSpy, getValue: () => false });
 
@@ -1711,7 +2469,7 @@ describe('<FeelField>', function() {
       it('should toggle feel active', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelToggleSwitch({
           container,
@@ -1732,7 +2490,7 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=true');
-          expect(domQuery('.bio-properties-panel-feel-editor-container', field.container)).to.exist;
+          expect(getEditor(field.container)).to.exist;
         });
       });
 
@@ -1756,7 +2514,7 @@ describe('<FeelField>', function() {
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelCheckbox({ container, setValue: updateSpy, getValue: () => false });
 
@@ -1766,9 +2524,28 @@ describe('<FeelField>', function() {
       clickInput(input);
 
       // then
-      expect(updateSpy).to.have.been.calledWith(true);
+      expect(updateSpy).to.have.been.calledOnceWith(true);
     });
 
+
+    it('should update on blur', async function() {
+
+      // given
+      const updateSpy = sinonSpy();
+
+      const result = createFeelCheckbox({ container, setValue: updateSpy, getValue: () => false });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.focus();
+      clickInput(input);
+      input.blur();
+
+      // then
+      expect(updateSpy).to.have.been.calledTwice;
+      expect(updateSpy).to.have.always.been.calledWith(true);
+    });
 
     describe('#isEdited', function() {
 
@@ -1843,7 +2620,7 @@ describe('<FeelField>', function() {
       it('should toggle feel active', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelCheckbox({
           container,
@@ -1864,7 +2641,7 @@ describe('<FeelField>', function() {
         // then
         return waitFor(() => {
           expect(updateSpy).to.have.been.calledWith('=true');
-          expect(domQuery('.bio-properties-panel-feel-editor-container', field.container)).to.exist;
+          expect(getEditor(field.container)).to.exist;
         });
       });
 
@@ -1891,19 +2668,30 @@ describe('<FeelField>', function() {
       const result = createFeelField({ container, placeholder: 'foo', feel: 'required' });
 
       // then
-      const input = domQuery('[role="textbox"]', result.container);
+      const input = getEditor(result.container);
       expect(input.textContent).to.eql('foo');
+    });
+
+
+    it('should render editor for feel=optional-default-enabled', function() {
+
+      // given
+      const result = createFeelField({ container, feel: 'optional-default-enabled' });
+
+      // then
+      const input = getEditor(result.container);
+      expect(input).to.exist;
     });
 
 
     it('should update', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelField({ container, setValue: updateSpy, feel: 'required' });
 
-      const input = domQuery('[role="textbox"]', result.container);
+      const input = getEditor(result.container);
 
       // when
       input.textContent = 'foo';
@@ -1914,14 +2702,106 @@ describe('<FeelField>', function() {
       });
     });
 
+    it('should commit FEEL editor value on blur (debounce)', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        setValue: setValueSpy,
+        feel: 'required',
+        getValue: () => '',
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const editor = getEditor(result.container);
+
+      editor.textContent = 'foo';
+
+      // wait for CodeMirror MutationObserver to process the change
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(setValueSpy).not.to.have.been.called;
+
+      // when
+      editor.focus();
+      editor.blur();
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('=foo');
+    });
+
+
+    it('should not commit FEEL editor value again on blur if already committed', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        setValue: setValueSpy,
+        feel: 'required',
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const editor = getEditor(result.container);
+
+      editor.textContent = 'foo';
+
+      await waitFor(() => {
+        expect(setValueSpy).to.have.been.calledWith('=foo');
+      });
+
+      setValueSpy.resetHistory();
+
+      // when
+      editor.focus();
+      editor.blur();
+
+      // then
+      expect(setValueSpy).not.to.have.been.called;
+    });
+
+
+    it('should persist FEEL editor value on unmount', async function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createFeelField({
+        container,
+        setValue: setValueSpy,
+        feel: 'required',
+        debounce: fn => debounce(fn, 50)
+      });
+
+      const editor = getEditor(result.container);
+
+      editor.textContent = 'foo';
+
+      await waitFor(() => {
+        expect(editor.textContent).to.eql('foo');
+      });
+
+      expect(setValueSpy).not.to.have.been.called;
+
+      // when
+      await act(() => {
+        result.unmount();
+      });
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('=foo');
+    });
+
 
     it('should render with missing = sign', async function() {
 
       // given
       const result = createFeelField({ container, feel: 'required', getValue: () => 'foo' });
 
-      const entry = domQuery('.bio-properties-panel-entry', result.container);
-      const input = domQuery('[role="textbox"]', entry);
+      const input = getEditor(result.container);
 
       // then
       expect(input.textContent).to.eql('foo');
@@ -1931,11 +2811,11 @@ describe('<FeelField>', function() {
     it('should update with missing = sign', function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelField({ container, setValue: updateSpy, getValue: () => 'foo', feel: 'required' });
 
-      const input = domQuery('[role="textbox"]', result.container);
+      const input = getEditor(result.container);
 
       // when
       input.textContent += 'o';
@@ -1948,7 +2828,7 @@ describe('<FeelField>', function() {
 
 
     it('should not submit empty feel expression', function() {
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createFeelField({
         container,
@@ -1963,7 +2843,7 @@ describe('<FeelField>', function() {
 
       // then
       expect(updateSpy).to.have.been.calledWith(undefined);
-      expect(domQuery('.bio-properties-panel-feel-editor-container', container)).to.exist;
+      expect(getEditor(container)).to.exist;
     });
 
 
@@ -1972,7 +2852,7 @@ describe('<FeelField>', function() {
       // given
       const result = createFeelField({ container, feel: 'required', getValue: () => 'foo' });
 
-      const contentEditable = domQuery('[role="textbox"]', result.container);
+      const contentEditable = getEditor(result.container);
 
       const copyEvent = new ClipboardEvent('copy', {
         dataType: 'text/plain',
@@ -1994,7 +2874,7 @@ describe('<FeelField>', function() {
       // given
       const result = createFeelField({ container, feel: 'required', getValue: () => 'foo' });
 
-      const contentEditable = domQuery('[role="textbox"]', result.container);
+      const contentEditable = getEditor(result.container);
 
       const copyEvent = new ClipboardEvent('copy', {
         dataType: 'text/plain',
@@ -2049,7 +2929,7 @@ describe('<FeelField>', function() {
         const result = createFeelField({ container, feel: 'required' });
 
         const input = domQuery('.bio-properties-panel-input', result.container);
-        const contentEditable = domQuery('[role="textbox"]', result.container);
+        const contentEditable = getEditor(result.container);
 
         // assume
         expect(isEdited(input)).to.be.false;
@@ -2075,7 +2955,7 @@ describe('<FeelField>', function() {
         // given
         const eventBus = new EventBus();
 
-        const onShowSpy = sinon.spy();
+        const onShowSpy = sinonSpy();
 
 
         createFeelField({ id: 'foo', container, eventBus, onShow: onShowSpy, feel: 'required' });
@@ -2109,7 +2989,7 @@ describe('<FeelField>', function() {
       it('should show syntax error', async function() {
 
         // given
-        const clock = sinon.useFakeTimers();
+        const clock = useFakeTimers({ shouldClearNativeTimers: true });
         const result = createFeelField({ container, getValue: () => '= ...syntax error...', feel: 'required' });
 
         // when
@@ -2129,7 +3009,7 @@ describe('<FeelField>', function() {
       it('should not indicate field error on non-syntax errors', async function() {
 
         // given
-        const clock = sinon.useFakeTimers();
+        const clock = useFakeTimers({ shouldClearNativeTimers: true });
         const result = createFeelField({ container, getValue: () => '= friend[0]', feel: 'required' });
 
         // when
@@ -2149,7 +3029,7 @@ describe('<FeelField>', function() {
       it('should show global error over local error', async function() {
 
         // given
-        const clock = sinon.useFakeTimers();
+        const clock = useFakeTimers({ shouldClearNativeTimers: true });
         const errors = {
           foo: 'bar'
         };
@@ -2278,7 +3158,7 @@ describe('<FeelField>', function() {
       it('should pass error to `setValue`', async function() {
 
         // given
-        const setValueSpy = sinon.spy();
+        const setValueSpy = sinonSpy();
         const validate = () => 'error';
 
         const result = createFeelTextArea({ container, validate, setValue: setValueSpy, feel: 'required' });
@@ -2293,6 +3173,51 @@ describe('<FeelField>', function() {
 
         // then
         expect(setValueSpy).to.have.been.calledWith('=bar', 'error');
+      });
+
+    });
+
+    describe('feel language contexte', function() {
+
+      it('should fail linting backticks without camunda parser dialect',async function() {
+
+        // given
+        const validate = () => null;
+
+        const result = createFeelField({ container, validate, feel: 'required' });
+
+        const entry = domQuery('.bio-properties-panel-entry', result.container);
+
+        const input = domQuery('[role="textbox"]', entry);
+
+        // when
+        input.textContent = '`backtick`';
+
+        // then
+        return waitFor(() => {
+          expect(isValid(entry)).to.be.false;
+        });
+      });
+
+
+      it('should pass linting backticks with camunda parser dialect',async function() {
+
+        // given
+        const validate = () => null;
+
+        const result = createFeelField({ container, validate, feel: 'required', parserDialect: 'camunda' });
+
+        const entry = domQuery('.bio-properties-panel-entry', result.container);
+
+        const input = domQuery('[role="textbox"]', entry);
+
+        // when
+        input.textContent = '`backtick`';
+
+        // then
+        return waitFor(() => {
+          expect(isValid(entry)).to.be.true;
+        });
       });
 
     });
@@ -2451,7 +3376,7 @@ describe('<FeelField>', function() {
       it('should toggle feel inactive', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelField({
           container,
@@ -2477,7 +3402,7 @@ describe('<FeelField>', function() {
       it('should NOT toggle if FEEL is required', async function() {
 
         // given
-        const updateSpy = sinon.spy();
+        const updateSpy = sinonSpy();
 
         const field = createFeelField({
           container,
@@ -2503,108 +3428,119 @@ describe('<FeelField>', function() {
     });
 
 
-    describe('popup editor', function() {
+    describe('opening popup', function() {
 
-      it('should render open popup action', async function() {
+      it('should render open popup button', async function() {
 
         // given
-        const result = createFeelField({ container, feel: 'required', getValue: () => 'foo' });
-
-        const entry = domQuery('.bio-properties-panel-entry', result.container);
-        const openEditor = domQuery('.bio-properties-panel-open-feel-popup', entry);
+        const result = createFeelField({
+          container,
+          feel: 'required',
+          getValue: () => 'foo',
+        });
 
         // then
-        expect(openEditor).to.exist;
+        const entry = domQuery('.bio-properties-panel-entry', result.container);
+        const openPopupButton = domQuery(
+          '.bio-properties-panel-open-feel-popup',
+          entry
+        );
+
+        expect(openPopupButton).to.exist;
       });
 
 
-      it('should open popup editor', async function() {
+      it('should fire <propertiesPanel.openPopup> event when clicking open popup button', async function() {
 
         // given
-        const spy = sinon.spy();
+        const eventBus = new EventBus();
+        const openPopupSpy = sinonSpy();
+        eventBus.on('propertiesPanel.openPopup', openPopupSpy);
 
         const result = createFeelField({
           container,
-          element: { type: 'foo' },
+          eventBus,
           feel: 'required',
-          getValue: () => 'foo',
-          openPopup: spy
+          id: 'testField'
         });
 
-        const entry = domQuery('.bio-properties-panel-entry', result.container);
-        const openEditor = domQuery('.bio-properties-panel-open-feel-popup', entry);
+        const openPopupButton = domQuery('.bio-properties-panel-open-feel-popup', result.container);
 
         // when
         await act(() => {
-          openEditor.click();
+          clickInput(openPopupButton);
         });
 
         // then
-        expect(spy).to.have.been.called;
-        expect(spy.args[0][1].type).to.eql('feel');
+        expect(openPopupSpy).to.have.been.calledOnce;
+        expect(openPopupSpy.firstCall.args[0]).to.exist;
+        expect(openPopupSpy.firstCall.args[0].entryId).to.equal('testField');
       });
 
 
-      it('should close popup editor on unmount', async function() {
-
-        const closeSpy = sinon.spy();
-
-        const props = {
-          container,
-          element: { type: 'foo' },
-          feel: 'required',
-          getValue: () => 'foo',
-          openPopup: () => {},
-          closePopup: closeSpy
-        };
-
-        const result = createFeelField(props);
-
-        // when
-        createFeelField({ Component: 'div', ...props }, result.render);
-
-        // then
-        expect(closeSpy).to.have.been.called;
-      });
-
-
-      it('should show placeholder while popup open', async function() {
+      it('should fire <propertiesPanel.closePopup> event on component unmount', async function() {
 
         // given
-        const id = 'myPopup';
-        let currentPopupSource;
+        const eventBus = new EventBus();
+        const closePopupSpy = sinonSpy();
+        eventBus.on('propertiesPanel.closePopup', closePopupSpy);
 
-        const props = {
+        const result = createFeelField({
           container,
+          eventBus,
           feel: 'required',
-          id,
-          element: { type: 'foo' },
-          getValue: () => 'foo',
-          openPopup: () => currentPopupSource = id,
-          getPopupSource: () => currentPopupSource
-        };
-
-        const result = createFeelField(props);
-
-        const entry = domQuery('.bio-properties-panel-entry', result.container);
-        const openEditor = domQuery('.bio-properties-panel-open-feel-popup', entry);
-
-        const placeholder = domQuery('.bio-properties-panel-feel-editor__open-popup-placeholder', result.container);
-
-        // assume
-        expect(window.getComputedStyle(placeholder).display).to.eql('none');
+          id: 'testField'
+        });
 
         // when
         await act(() => {
-          openEditor.click();
+          result.unmount();
         });
 
-        createFeelField({
-          ...props,
-        }, result.render);
+        // then
+        expect(closePopupSpy).to.have.been.calledOnce;
+      });
+
+
+      it('should show placeholder when popup open', async function() {
+
+        // given
+        const id = 'myField';
+        const eventBus = new EventBus();
+        eventBus.on('propertiesPanel.openPopup', () => true);
+
+        const result = createFeelField({
+          container,
+          eventBus,
+          feel: 'required',
+          id
+        });
+
+        const openPopupButton = domQuery('.bio-properties-panel-open-feel-popup', result.container);
+
+        // when
+        await act(() => {
+          clickInput(openPopupButton);
+        });
 
         // then
-        expect(window.getComputedStyle(placeholder).display).to.eql('flex');
+        expect(domQuery('.bio-properties-panel-feel-editor__open-popup-placeholder', result.container)).to.exist;
+      });
+
+
+      it('should not show placeholder when popup closed', async function() {
+
+        // given
+        const id = 'myField';
+
+        const result = createFeelField({
+          container,
+          feel: 'required',
+          id
+        });
+
+        // then
+        expect(domQuery('.bio-properties-panel-feel-editor__open-popup-placeholder', result.container)).not.to.exist;
       });
 
     });
@@ -2745,6 +3681,21 @@ describe('<FeelField>', function() {
 
 // helpers ////////////////////
 
+function createFeelPasteEvent(textData, feelData = '') {
+  const pasteEvent = new ClipboardEvent('paste', {
+    bubbles: true,
+    cancelable: true,
+    clipboardData: new DataTransfer()
+  });
+
+  sinonStub(pasteEvent.clipboardData, 'getData').callsFake((type) => {
+    if (type === 'application/FEEL') return feelData;
+    return textData;
+  });
+
+  return pasteEvent;
+}
+
 function createFeelField(options = {}, renderFn = render) {
   const {
     element,
@@ -2765,10 +3716,10 @@ function createFeelField(options = {}, renderFn = render) {
     onBlur = noop,
     errors = {},
     variables,
-    openPopup = noop,
-    closePopup = noop,
-    getPopupSource = noop,
     Component = FeelField,
+    parserDialect,
+    builtins,
+    dialect,
     ...rest
   } = options;
 
@@ -2789,10 +3740,10 @@ function createFeelField(options = {}, renderFn = render) {
     getDescriptionForId
   };
 
-  const feelPopupContext = {
-    open: openPopup,
-    close: closePopup,
-    source: getPopupSource()
+  const feelLanguageContext = {
+    parserDialect,
+    builtins,
+    dialect
   };
 
   return renderFn(
@@ -2800,7 +3751,7 @@ function createFeelField(options = {}, renderFn = render) {
       <EventContext.Provider value={ eventContext }>
         <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
           <DescriptionContext.Provider value={ descriptionContext }>
-            <FeelPopupContext.Provider value={ feelPopupContext }>
+            <FeelLanguageContext.Provider value={ { feelLanguageContext } }>
               <Component
                 element={ element }
                 id={ id }
@@ -2816,13 +3767,13 @@ function createFeelField(options = {}, renderFn = render) {
                 variables={ variables }
                 { ...rest }
               />
-            </FeelPopupContext.Provider>
+            </FeelLanguageContext.Provider>
           </DescriptionContext.Provider>
         </PropertiesPanelContext.Provider>
       </EventContext.Provider>
     </ErrorsContext.Provider>,
     {
-      container
+      container,
     }
   );
 }
@@ -2857,4 +3808,8 @@ function createFeelCheckbox(options = {}, renderFn = render) {
 
 function isValid(node) {
   return !domClasses(node).has('has-error');
+}
+
+function getEditor(container) {
+  return domQuery('[role="textbox"]', container);
 }

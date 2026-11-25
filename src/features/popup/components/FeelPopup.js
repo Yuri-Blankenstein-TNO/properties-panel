@@ -1,0 +1,177 @@
+import { useEffect, useRef } from 'preact/hooks';
+import FeelEditor from '../../../components/entries/FEEL/FeelEditor';
+import TemplatingEditor from '../../../components/entries/templating/TemplatingEditor';
+import { LaunchIcon } from '../../../components/icons';
+import { Popup } from './Popup';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
+/**
+ * @typedef {Object} FeelPopupProps
+ * @property {string} entryId
+ * @property {Function} onInput
+ * @property {Function} onClose
+ * @property {string} title
+ * @property {'feel'|'feelers'} type
+ * @property {string} value
+ * @property {Array} [links]
+ * @property {Array|Object} [variables]
+ * @property {string} [hostLanguage]
+ * @property {boolean} [singleLine]
+ * @property {HTMLElement} [sourceElement]
+ * @property {HTMLElement|string} [tooltipContainer]
+ * @property {number} [width]
+ * @property {number} [height]
+ * @property {{top: number, left: number}} [position]
+ */
+
+export const FEEL_POPUP_WIDTH = 700;
+export const FEEL_POPUP_HEIGHT = 400;
+
+/**
+ * FEEL expression editor popup component
+ * @param {FeelPopupProps} props
+ */
+export function FeelPopup(props) {
+  const {
+    entryId,
+    onInput,
+    onClose,
+    title,
+    type,
+    value,
+    links,
+    variables,
+    hostLanguage,
+    singleLine,
+    sourceElement,
+    tooltipContainer,
+    feelLanguageContext,
+    width = FEEL_POPUP_WIDTH,
+    height = FEEL_POPUP_HEIGHT,
+    position,
+  } = props;
+
+  const editorRef = useRef();
+  const popupRef = useRef();
+
+  const isAutoCompletionOpen = useRef(false);
+
+  const handleSetReturnFocus = () => {
+    sourceElement && sourceElement.focus();
+  };
+
+  const onKeyDownCapture = (event) => {
+
+    // we use capture here to make sure we handle the event before the editor does
+    if (event.key === 'Escape') {
+      isAutoCompletionOpen.current = autoCompletionOpen(event.target);
+    }
+  };
+
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+
+      // close popup only if auto completion is not open
+      if (!isAutoCompletionOpen.current) {
+        onClose();
+        isAutoCompletionOpen.current = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+
+    // set focus on editor when popup is opened
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+  }, [ editorRef ]);
+
+  return (
+    <Popup
+      className="bio-properties-panel-feel-popup"
+      title={ title }
+      returnFocus={ false }
+      closeOnEscape={ false }
+      delayInitialFocus={ false }
+      allowFocusMove={ (event) => !isSnippetNavigation(event) }
+      onPostDeactivate={ handleSetReturnFocus }
+      height={ height }
+      width={ width }
+      position={ position }
+      resizable
+      ref={ popupRef }
+    >
+      <Popup.Title
+        title={ title }
+        showCloseButton={ true }
+        closeButtonTooltip="Save and close"
+        onClose={ onClose }
+        draggable
+      >
+        <>
+          {(links || []).map((link, index) => {
+            return (
+              <a
+                key={ index }
+                rel="noreferrer"
+                href={ link.href }
+                target="_blank"
+                class="bio-properties-panel-feel-popup__title-link"
+              >
+                {link.title}
+                <LaunchIcon />
+              </a>
+            );
+          })}
+        </>
+      </Popup.Title>
+      <Popup.Body>
+        <div
+          onKeyDownCapture={ onKeyDownCapture }
+          onKeyDown={ onKeyDown }
+          class="bio-properties-panel-feel-popup__body"
+        >
+          {type === 'feel' && (
+            <FeelEditor
+              enableGutters={ true }
+              name={ entryId }
+              onInput={ onInput }
+              value={ value }
+              variables={ variables }
+              feelLanguageContext={ feelLanguageContext }
+              ref={ editorRef }
+              tooltipContainer={ tooltipContainer }
+            />
+          )}
+
+          {type === 'feelers' && (
+            <TemplatingEditor
+              contentAttributes={ { 'aria-label': title } }
+              enableGutters={ true }
+              hostLanguage={ hostLanguage }
+              name={ entryId }
+              onInput={ onInput }
+              value={ value }
+              ref={ editorRef }
+              singleLine={ singleLine }
+              tooltipContainer={ tooltipContainer }
+            />
+          )}
+        </div>
+      </Popup.Body>
+    </Popup>
+  );
+}
+
+function autoCompletionOpen(element) {
+  const editor = element.closest('.cm-editor');
+  return editor ? editor.querySelector('.cm-tooltip-autocomplete') : null;
+}
+
+// while a snippet is active, Tab navigates its placeholders inside the editor
+function isSnippetNavigation(event) {
+  const editor = event.target.closest('.cm-editor');
+  return !!(editor && editor.querySelector('.cm-snippetField'));
+}

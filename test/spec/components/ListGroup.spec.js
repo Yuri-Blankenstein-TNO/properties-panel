@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import { useContext, useEffect, useState } from 'preact/hooks';
 
 import {
@@ -23,7 +27,7 @@ import {
 import ListGroup from 'src/components/ListGroup';
 
 import { PropertiesPanelContext, LayoutContext } from 'src/context';
-import { ErrorsContext } from '../../../src/context';
+import { DiagnosticsContext, ErrorsContext } from '../../../src/context';
 
 insertCoreStyles();
 
@@ -140,6 +144,79 @@ describe('<ListGroup>', function() {
       expect(errorBadge.innerText).to.eql('2');
     });
 
+
+    it('should indicate warning', function() {
+
+      // given
+      const items = [
+        {
+          id: 'item-1',
+          label: 'Item 1'
+        }
+      ];
+
+      const diagnostics = {
+        'item-1': [ { severity: 'warning', message: 'foo' } ]
+      };
+
+      // when
+      const { container } = createListGroup({ container: parentContainer, items, diagnostics });
+
+      // then
+      expect(domQuery('.bio-properties-panel-list-badge--warning', container)).to.exist;
+    });
+
+
+    it('should indicate error over warning', function() {
+
+      // given
+      const items = [
+        {
+          id: 'item-1',
+          label: 'Item 1'
+        },
+        {
+          id: 'item-2',
+          label: 'Item 2'
+        }
+      ];
+
+      const diagnostics = {
+        'item-1': [ { severity: 'warning', message: 'foo' } ],
+        'item-2': [ { severity: 'error', message: 'foo' } ]
+      };
+
+      // when
+      const { container } = createListGroup({ container: parentContainer, items, diagnostics });
+
+      // then
+      expect(domQuery('.bio-properties-panel-list-badge--error', container)).to.exist;
+      expect(domQuery('.bio-properties-panel-list-badge--warning', container)).to.not.exist;
+    });
+
+
+    it('should NOT indicate info', function() {
+
+      // given
+      const items = [
+        {
+          id: 'item-1',
+          label: 'Item 1'
+        }
+      ];
+
+      const diagnostics = {
+        'item-1': [ { severity: 'info', message: 'foo' } ]
+      };
+
+      // when
+      const { container } = createListGroup({ container: parentContainer, items, diagnostics });
+
+      // then
+      expect(domQuery('.bio-properties-panel-list-badge--error', container)).to.not.exist;
+      expect(domQuery('.bio-properties-panel-list-badge--warning', container)).to.not.exist;
+    });
+
   });
 
 
@@ -228,7 +305,7 @@ describe('<ListGroup>', function() {
   it('should bind add callback', async function() {
 
     // given
-    const add = sinon.spy();
+    const add = sinonSpy();
 
     const { container } = createListGroup({ container: parentContainer, add });
 
@@ -836,7 +913,7 @@ describe('<ListGroup>', function() {
 
   describe('title attributes', function() {
 
-    it('should have title for empty lists', function() {
+    it('should NOT have title for empty lists', function() {
 
       // given
       const { container } = createListGroup({ container: parentContainer });
@@ -846,11 +923,11 @@ describe('<ListGroup>', function() {
       const title = domQuery('.bio-properties-panel-group-header-title', header);
 
       // then
-      expect(domAttr(title, 'title')).to.eql('List');
+      expect(domAttr(title, 'title')).to.not.exist;
     });
 
 
-    it('should not have title for lists with tooltip', function() {
+    it('should NOT have title for lists with tooltip', function() {
 
       // given
       const { container } = createListGroup({ container: parentContainer, tooltip: 'foo' });
@@ -864,7 +941,7 @@ describe('<ListGroup>', function() {
     });
 
 
-    it('should have title for list with items', function() {
+    it('should have title for list with items (member indicator)', function() {
 
       // given
       const items = [
@@ -886,6 +963,57 @@ describe('<ListGroup>', function() {
 
       // then
       expect(domAttr(badge, 'title')).to.eql('List contains 2 items');
+    });
+
+  });
+
+
+  describe('tooltip keyboard navigation', function() {
+
+    it('should allow tab navigation to focusable tooltip content', async function() {
+
+      // given
+      const tooltip = <div><a id="tooltip-link" href="#">link</a></div>;
+      const { container } = createListGroup({ container: parentContainer, tooltip });
+
+      const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', container);
+
+      // when - open tooltip via keyboard focus
+      wrapper.focus();
+
+      await waitFor(() => {
+        expect(domQuery('.bio-properties-panel-tooltip', container)).to.exist;
+      });
+
+      // then - focusable tooltip content should be inside the wrapper
+      const link = domQuery('#tooltip-link', container);
+      expect(wrapper.contains(link)).to.be.true;
+    });
+
+
+    it('should keep tooltip open when focusing link inside tooltip', async function() {
+
+      // given
+      const tooltip = <div><a id="tooltip-link" href="#">link</a></div>;
+      const { container } = createListGroup({ container: parentContainer, tooltip });
+
+      const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', container);
+
+      // when - open tooltip via keyboard focus and focus the link
+      wrapper.focus();
+
+      await waitFor(() => {
+        expect(domQuery('.bio-properties-panel-tooltip', container)).to.exist;
+      });
+
+      const link = domQuery('#tooltip-link', container);
+      link.focus();
+
+      // then - tooltip should remain visible after state updates flush
+      await waitFor(() => {
+        expect(document.activeElement).to.equal(link);
+        expect(domQuery('.bio-properties-panel-tooltip', container)).to.exist;
+      });
     });
 
   });
@@ -1016,6 +1144,7 @@ function TestGroup(props) {
   const {
     element = noopElement,
     errors = {},
+    diagnostics = {},
     id = 'sampleId',
     label = 'List',
     items = [],
@@ -1026,20 +1155,22 @@ function TestGroup(props) {
   } = props;
 
   return (
-    <ErrorsContext.Provider value={ { errors } }>
-      <MockLayout>
-        <ListGroup
-          element={ element }
-          id={ id }
-          label={ label }
-          items={ items }
-          add={ add }
-          shouldOpen={ shouldOpen }
-          tooltip={ tooltip }
-          translate={ translate }
-        />
-      </MockLayout>
-    </ErrorsContext.Provider>
+    <DiagnosticsContext.Provider value={ { diagnostics } }>
+      <ErrorsContext.Provider value={ { errors } }>
+        <MockLayout>
+          <ListGroup
+            element={ element }
+            id={ id }
+            label={ label }
+            items={ items }
+            add={ add }
+            shouldOpen={ shouldOpen }
+            tooltip={ tooltip }
+            translate={ translate }
+          />
+        </MockLayout>
+      </ErrorsContext.Provider>
+    </DiagnosticsContext.Provider>
   );
 }
 
@@ -1047,6 +1178,7 @@ function createListGroup(options = {}, renderFn = render) {
   const {
     element = noopElement,
     errors,
+    diagnostics,
     id = 'sampleId',
     label = 'List',
     items = [],
@@ -1061,6 +1193,7 @@ function createListGroup(options = {}, renderFn = render) {
     <TestGroup
       element={ element }
       errors={ errors }
+      diagnostics={ diagnostics }
       id={ id }
       label={ label }
       items={ items }

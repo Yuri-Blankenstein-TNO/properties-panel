@@ -1,4 +1,6 @@
 import Description from './Description';
+import DiagnosticMessage from './Diagnostic';
+import Tooltip from './Tooltip';
 
 import {
   useEffect,
@@ -11,8 +13,12 @@ import classnames from 'classnames';
 import { isFunction } from 'min-dash';
 
 import {
-  useError
+  useDiagnostics
 } from '../../hooks';
+
+import { getDiagnosticClass, getMostSevere } from '../util/diagnostics';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 export function NumberField(props) {
 
@@ -29,7 +35,9 @@ export function NumberField(props) {
     step,
     value = '',
     onFocus,
-    onBlur
+    onBlur,
+    onKeyDown,
+    tooltip
   } = props;
 
   const [ localValue, setLocalValue ] = useState(value);
@@ -58,7 +66,13 @@ export function NumberField(props) {
 
   return (
     <div class="bio-properties-panel-numberfield">
-      {displayLabel && <label for={ prefixId(id) } class="bio-properties-panel-label">{ label }</label> }
+      {displayLabel && (
+        <label for={ prefixId(id) } class="bio-properties-panel-label">
+          <Tooltip value={ tooltip } forId={ id } element={ props.element }>
+            { label }
+          </Tooltip>
+        </label>
+      )}
       <input
         id={ prefixId(id) }
         ref={ inputRef }
@@ -73,6 +87,7 @@ export function NumberField(props) {
         onInput={ handleInput }
         onFocus={ onFocus }
         onBlur={ onBlur }
+        onKeyDown={ onKeyDown }
         step={ step }
         value={ localValue } />
     </div>
@@ -94,7 +109,7 @@ export function NumberField(props) {
  * @param {Function} props.onFocus
  * @param {Function} props.onBlur
  * @param {String} props.step
- * @param {Function} props.validate
+ * @param {import('../util/diagnostics').ValidateFunction} props.validate
  */
 export default function NumberFieldEntry(props) {
   const {
@@ -111,11 +126,12 @@ export default function NumberFieldEntry(props) {
     step,
     onFocus,
     onBlur,
-    validate
+    validate,
+    tooltip
   } = props;
 
-  const globalError = useError(id);
-  const [ localError, setLocalError ] = useState(null);
+  const diagnostics = useDiagnostics(id);
+  const [ localDiagnostic, setLocalDiagnostic ] = useState(null);
 
   let value = getValue(element);
 
@@ -123,27 +139,30 @@ export default function NumberFieldEntry(props) {
     if (isFunction(validate)) {
       const newValidationError = validate(value) || null;
 
-      setLocalError(newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
   }, [ value, validate ]);
 
   const onInput = (newValue) => {
-    let newValidationError = null;
+    if (newValue !== value) {
+      let newValidationError = null;
 
-    if (isFunction(validate)) {
-      newValidationError = validate(newValue) || null;
+      if (isFunction(validate)) {
+        newValidationError = validate(newValue) || null;
+      }
+
+      setValue(newValue, newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
-
-    setValue(newValue, newValidationError);
-    setLocalError(newValidationError);
   };
 
-  const error = globalError || localError;
+  // most severe wins, externally provided diagnostics win ties
+  const diagnostic = getMostSevere([ ...diagnostics, localDiagnostic ]);
 
   return (
     <div class={ classnames(
       'bio-properties-panel-entry',
-      error ? 'has-error' : '') } data-entry-id={ id }>
+      getDiagnosticClass(diagnostic)) } data-entry-id={ id }>
       <NumberField
         debounce={ debounce }
         disabled={ disabled }
@@ -156,8 +175,10 @@ export default function NumberFieldEntry(props) {
         max={ max }
         min={ min }
         step={ step }
-        value={ value } />
-      { error && <div class="bio-properties-panel-error">{ error }</div> }
+        value={ value }
+        tooltip={ tooltip }
+      />
+      <DiagnosticMessage diagnostic={ diagnostic } forId={ id } element={ element } />
       <Description forId={ id } element={ element } value={ description } />
     </div>
   );

@@ -1,10 +1,10 @@
 import Description from './Description';
+import DiagnosticMessage from './Diagnostic';
 import Tooltip from './Tooltip';
 
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState
 } from 'preact/hooks';
 
@@ -13,9 +13,15 @@ import classnames from 'classnames';
 import { isFunction } from 'min-dash';
 
 import {
-  useError,
-  useShowEntryEvent
+  useDebounce,
+  useDiagnostics,
+  useShowEntryEvent,
+  useStaticCallback
 } from '../../hooks';
+import { isCmdWithChar } from '../util/keyboardUtils';
+import { getDiagnosticClass, getMostSevere } from '../util/diagnostics';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 function Textfield(props) {
 
@@ -24,9 +30,10 @@ function Textfield(props) {
     disabled = false,
     id,
     label,
-    onInput,
+    onInput: commitValue,
     onFocus,
     onBlur,
+    onPaste,
     placeholder,
     value = '',
     tooltip
@@ -36,31 +43,53 @@ function Textfield(props) {
 
   const ref = useShowEntryEvent(id);
 
+  const onInput = useCallback(newValue => {
+    const newModelValue = newValue === '' ? undefined : newValue;
+    commitValue(newModelValue);
+  }, [ commitValue ]);
+
   /**
    * @type { import('min-dash').DebouncedFunction }
    */
-  const handleInputCallback = useMemo(() => {
-    return debounce((newValue) => {
-      onInput(newValue);
-    });
-  }, [ onInput, debounce ]);
+  const handleInput = useDebounce(onInput, debounce);
 
   const handleOnBlur = e => {
-    const value = e.target.value;
+    const trimmedValue = e.target.value.trim();
 
-    if (value.trim() !== value) {
-      setLocalValue(value.trim());
-      handleInput(value.trim());
-    }
+    // trim and commit on blur
+    handleInput.cancel?.();
+    onInput(trimmedValue);
+    setLocalValue(trimmedValue);
 
     if (onBlur) {
       onBlur(e);
     }
   };
 
-  const handleInput = newValue => {
-    const newModelValue = newValue === '' ? undefined : newValue;
-    handleInputCallback(newModelValue);
+  const handleOnPaste = e => {
+    const input = e.target;
+    const isFieldEmpty = !input.value;
+    const isAllSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+
+    // Trim and handle paste if field is empty or all content is selected (overwrite)
+    if (isFieldEmpty || isAllSelected) {
+      const trimmedValue = e.clipboardData.getData('text').trim();
+
+      setLocalValue(trimmedValue);
+      handleInput(trimmedValue);
+
+      if (onPaste) {
+        onPaste(e);
+      }
+
+      e.preventDefault();
+      return;
+    }
+
+    // Allow default paste behavior for normal text editing
+    if (onPaste) {
+      onPaste(e);
+    }
   };
 
   const handleLocalInput = e => {
@@ -81,6 +110,12 @@ function Textfield(props) {
     setLocalValue(value);
   }, [ value ]);
 
+  const handleOnKeyDown = e => {
+    if (isCmdWithChar(e)) {
+      handleInput.flush?.();
+    }
+  };
+
   return (
     <div class="bio-properties-panel-textfield">
       <label for={ prefixId(id) } class="bio-properties-panel-label">
@@ -99,7 +134,9 @@ function Textfield(props) {
         class="bio-properties-panel-input"
         onInput={ handleLocalInput }
         onFocus={ onFocus }
+        onKeyDown={ handleOnKeyDown }
         onBlur={ handleOnBlur }
+        onPaste={ handleOnPaste }
         placeholder={ placeholder }
         value={ localValue } />
     </div>
@@ -119,7 +156,7 @@ function Textfield(props) {
  * @param {Function} props.onFocus
  * @param {Function} props.onBlur
  * @param {string|import('preact').Component} props.tooltip
- * @param {Function} props.validate
+ * @param {import('../util/diagnostics').ValidateFunction} props.validate
  */
 export default function TextfieldEntry(props) {
   const {
@@ -134,12 +171,13 @@ export default function TextfieldEntry(props) {
     validate,
     onFocus,
     onBlur,
+    onPaste,
     placeholder,
     tooltip
   } = props;
 
-  const globalError = useError(id);
-  const [ localError, setLocalError ] = useState(null);
+  const diagnostics = useDiagnostics(id);
+  const [ localDiagnostic, setLocalDiagnostic ] = useState(null);
 
   let value = getValue(element);
 
@@ -147,33 +185,33 @@ export default function TextfieldEntry(props) {
     if (isFunction(validate)) {
       const newValidationError = validate(value) || null;
 
-      setLocalError(newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
   }, [ value, validate ]);
 
-  const onInput = useCallback((newValue) => {
+  const onInput = useStaticCallback((newValue) => {
     const value = getValue(element);
-    let newValidationError = null;
-
-    if (isFunction(validate)) {
-      newValidationError = validate(newValue) || null;
-    }
 
     if (newValue !== value) {
+      let newValidationError = null;
+
+      if (isFunction(validate)) {
+        newValidationError = validate(newValue) || null;
+      }
+
       setValue(newValue, newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
+  });
 
-    setLocalError(newValidationError);
-  }, [ element ]);
-
-
-  const error = globalError || localError;
+  // most severe wins, externally provided diagnostics win ties
+  const diagnostic = getMostSevere([ ...diagnostics, localDiagnostic ]);
 
   return (
     <div
       class={ classnames(
         'bio-properties-panel-entry',
-        error ? 'has-error' : '')
+        getDiagnosticClass(diagnostic))
       }
       data-entry-id={ id }>
       <Textfield
@@ -185,11 +223,12 @@ export default function TextfieldEntry(props) {
         onInput={ onInput }
         onFocus={ onFocus }
         onBlur={ onBlur }
+        onPaste={ onPaste }
         placeholder={ placeholder }
         value={ value }
         tooltip={ tooltip }
         element={ element } />
-      { error && <div class="bio-properties-panel-error">{ error }</div> }
+      <DiagnosticMessage diagnostic={ diagnostic } forId={ id } element={ element } />
       <Description forId={ id } element={ element } value={ description } />
     </div>
   );

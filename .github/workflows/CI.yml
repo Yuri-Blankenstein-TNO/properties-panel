@@ -6,16 +6,18 @@ jobs:
     strategy:
       matrix:
         os: [ macos-latest, ubuntu-latest, windows-latest ]
-        node-version: [ 20 ]
+        node-version: [ 24 ]
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -23,7 +25,7 @@ jobs:
       run: npm ci
     - name: Setup project
       uses: bpmn-io/actions/setup@latest
-    - name: Build
+    - name: Build (with coverage)
       if: runner.os == 'Linux'
       env:
         COVERAGE: 1
@@ -36,7 +38,7 @@ jobs:
       run: npm run all
     - name: Upload coverage
       if: runner.os == 'Linux'
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         fail_ci_if_error: true
       env:

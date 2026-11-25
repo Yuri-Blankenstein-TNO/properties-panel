@@ -1,3 +1,10 @@
+import { expect } from 'chai';
+
+import {
+  replace as sinonReplace,
+  restore as sinonRestore
+} from 'sinon';
+
 import { useContext, useEffect, useState } from 'preact/hooks';
 
 import {
@@ -25,9 +32,10 @@ import Group from 'src/components/Group';
 
 import {
   PropertiesPanelContext,
+  DiagnosticsContext,
   ErrorsContext
 } from 'src/context';
-import { fireEvent } from '@testing-library/preact';
+import { fireEvent, waitFor } from '@testing-library/preact';
 import { act } from 'preact/test-utils';
 
 insertCoreStyles();
@@ -44,11 +52,11 @@ describe('<Group>', function() {
   });
 
   beforeEach(function() {
-    sinon.replace(window, 'requestAnimationFrame', cb => cb());
+    sinonReplace(window, 'requestAnimationFrame', cb => cb());
   });
 
   afterEach(function() {
-    sinon.restore();
+    sinonRestore();
   });
 
 
@@ -59,6 +67,37 @@ describe('<Group>', function() {
 
     // then
     expect(domQuery('.bio-properties-panel-group', result.container)).to.exist;
+  });
+
+
+  describe('without IntersectionObserver', function() {
+
+    let originalDescriptor;
+
+    beforeEach(function() {
+      originalDescriptor = Object.getOwnPropertyDescriptor(window, 'IntersectionObserver');
+
+      // simulate environment without IntersectionObserver, e.g. jsdom
+      delete window.IntersectionObserver;
+    });
+
+    afterEach(function() {
+      Object.defineProperty(window, 'IntersectionObserver', originalDescriptor);
+    });
+
+
+    it('should render', function() {
+
+      // assume
+      expect(typeof IntersectionObserver).to.eql('undefined');
+
+      // when
+      const result = createGroup({ container });
+
+      // then
+      expect(domQuery('.bio-properties-panel-group', result.container)).to.exist;
+    });
+
   });
 
 
@@ -247,12 +286,65 @@ describe('<Group>', function() {
       expect(errorMarker).to.exist;
     });
 
+
+    it('should show warning marker', function() {
+
+      // given
+      const entries = createEntries();
+      const diagnostics = { 'entry-1': [ { severity: 'warning', message: 'message' } ] };
+
+      // when
+      const result = createGroup({ container, label: 'Group', entries, diagnostics });
+
+      const header = domQuery('.bio-properties-panel-group-header', result.container);
+
+      // then
+      expect(domQuery('.bio-properties-panel-dot--warning', header)).to.exist;
+    });
+
+
+    it('should show error marker over warning marker', function() {
+
+      // given
+      const entries = createEntries();
+      const diagnostics = {
+        'entry-1': [ { severity: 'warning', message: 'message' } ],
+        'entry-2': [ { severity: 'error', message: 'message' } ]
+      };
+
+      // when
+      const result = createGroup({ container, label: 'Group', entries, diagnostics });
+
+      const header = domQuery('.bio-properties-panel-group-header', result.container);
+
+      // then
+      expect(domQuery('.bio-properties-panel-dot--error', header)).to.exist;
+      expect(domQuery('.bio-properties-panel-dot--warning', header)).to.not.exist;
+    });
+
+
+    it('should NOT show marker for info', function() {
+
+      // given
+      const entries = createEntries();
+      const diagnostics = { 'entry-1': [ { severity: 'info', message: 'message' } ] };
+
+      // when
+      const result = createGroup({ container, label: 'Group', entries, diagnostics });
+
+      const header = domQuery('.bio-properties-panel-group-header', result.container);
+
+      // then
+      expect(domQuery('.bio-properties-panel-dot--error', header)).to.not.exist;
+      expect(domQuery('.bio-properties-panel-dot--warning', header)).to.not.exist;
+    });
+
   });
 
 
   describe('title attributes', function() {
 
-    it('should have title for empty groups', function() {
+    it('should NOT have title for empty groups', function() {
 
       // given
       const result = createGroup({ container, label: 'Group' });
@@ -262,11 +354,11 @@ describe('<Group>', function() {
       const title = domQuery('.bio-properties-panel-group-header-title', header);
 
       // then
-      expect(domAttr(title, 'title')).to.eql('Group');
+      expect(domAttr(title, 'title')).to.not.exist;
     });
 
 
-    it('should not have title for groups with tooltip', function() {
+    it('should NOT have title for groups with tooltip', function() {
 
       // given
       const result = createGroup({ container, label: 'Group', tooltip: 'foo' });
@@ -280,7 +372,7 @@ describe('<Group>', function() {
     });
 
 
-    it('should have title for configured groups', function() {
+    it('should have title for data marker (configured groups)', function() {
 
       // given
       const entries = createEntries({
@@ -294,7 +386,58 @@ describe('<Group>', function() {
       const dataMarker = domQuery('.bio-properties-panel-dot', header);
 
       // then
-      expect(domAttr(dataMarker, 'title')).to.eql('Section contains data');
+      expect(domAttr(dataMarker, 'title')).to.eql('Section contains edits');
+    });
+
+  });
+
+
+  describe('tooltip keyboard navigation', function() {
+
+    it('should allow tab navigation to focusable tooltip content', async function() {
+
+      // given
+      const tooltip = <div><a id="tooltip-link" href="#">link</a></div>;
+      const result = createGroup({ container, label: 'Group', tooltip });
+
+      const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+      // when - open tooltip via keyboard focus
+      wrapper.focus();
+
+      await waitFor(() => {
+        expect(domQuery('.bio-properties-panel-tooltip', result.container)).to.exist;
+      });
+
+      // then - focusable tooltip content should be inside the wrapper
+      const link = domQuery('#tooltip-link', result.container);
+      expect(wrapper.contains(link)).to.be.true;
+    });
+
+
+    it('should keep tooltip open when focusing link inside tooltip', async function() {
+
+      // given
+      const tooltip = <div><a id="tooltip-link" href="#">link</a></div>;
+      const result = createGroup({ container, label: 'Group', tooltip });
+
+      const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+      // when - open tooltip via keyboard focus and focus the link
+      wrapper.focus();
+
+      await waitFor(() => {
+        expect(domQuery('.bio-properties-panel-tooltip', result.container)).to.exist;
+      });
+
+      const link = domQuery('#tooltip-link', result.container);
+      link.focus();
+
+      // then - tooltip should remain visible after state updates flush
+      await waitFor(() => {
+        expect(document.activeElement).to.equal(link);
+        expect(domQuery('.bio-properties-panel-tooltip', result.container)).to.exist;
+      });
     });
 
   });
@@ -349,16 +492,19 @@ function createEntries(options = {}) {
 function createGroup(options = {}) {
   const {
     container,
-    errors = {}
+    errors = {},
+    diagnostics = {}
   } = options;
 
 
   return render(
-    <ErrorsContext.Provider value={ { errors } }>
-      <MockLayout>
-        <Group id="Example" { ...options } />
-      </MockLayout>
-    </ErrorsContext.Provider>,
+    <DiagnosticsContext.Provider value={ { diagnostics } }>
+      <ErrorsContext.Provider value={ { errors } }>
+        <MockLayout>
+          <Group id="Example" { ...options } />
+        </MockLayout>
+      </ErrorsContext.Provider>
+    </DiagnosticsContext.Provider>,
     {
       container
     }

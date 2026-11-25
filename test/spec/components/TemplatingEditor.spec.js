@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import {
   render
 } from '@testing-library/preact/pure';
@@ -17,6 +21,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import TemplatingEditor from 'src/components/entries/templating/TemplatingEditor';
 
 insertCoreStyles();
+
 
 describe('<TemplatingEditor>', function() {
 
@@ -111,9 +116,9 @@ describe('<TemplatingEditor>', function() {
   it('should handle open popup', async function() {
 
     // given
-    const spy = sinon.spy();
+    const spy = sinonSpy();
 
-    render(<Wrapper value={ '' } onPopupOpen={ spy } />, { container });
+    render(<Wrapper value={ '' } onOpenPopup={ spy } />, { container });
 
     const openPopup = domQuery('.bio-properties-panel-open-feel-popup', container);
 
@@ -130,18 +135,31 @@ describe('<TemplatingEditor>', function() {
     // given
     const result = render(<Wrapper value={ '' } />, { container });
 
-    const placeholder = domQuery('.bio-properties-panel-feelers-editor__open-popup-placeholder', container);
-
     // assume
-    expect(window.getComputedStyle(placeholder).display).to.eql('none');
+    expect(domQuery('.bio-properties-panel-feelers-editor__popup-placeholder', container)).not.to.exist;
 
     // when
     result.rerender(<Wrapper value={ '' } popupOpen={ true } />, { container });
 
     // then
-    expect(window.getComputedStyle(placeholder).display).to.eql('flex');
+    expect(domQuery('.bio-properties-panel-feelers-editor__popup-placeholder', container)).to.exist;
   });
 
+
+  it('should call onOpenPopup with feelers type', async function() {
+
+    // given
+    const spy = sinonSpy();
+    render(<Wrapper onOpenPopup={ spy } />, { container });
+
+    const openPopupButton = domQuery('.bio-properties-panel-open-feel-popup', container);
+
+    // when
+    openPopupButton.click();
+
+    // then
+    expect(spy).to.have.been.calledWith('feelers');
+  });
 });
 
 

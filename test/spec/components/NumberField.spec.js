@@ -1,5 +1,11 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import {
-  render
+  render,
+  fireEvent,
+  findByText
 } from '@testing-library/preact/pure';
 
 import TestContainer from 'mocha-test-container-support';
@@ -49,7 +55,7 @@ describe('<NumberField>', function() {
   it('should update', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const result = createNumberField({ container, setValue: updateSpy });
 
@@ -66,7 +72,7 @@ describe('<NumberField>', function() {
   it('should update (floating point number)', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const result = createNumberField({ container, setValue: updateSpy, step: 'any' });
 
@@ -83,9 +89,9 @@ describe('<NumberField>', function() {
   it('should update (undefined)', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
-    const result = createNumberField({ container, setValue: updateSpy });
+    const result = createNumberField({ container, getValue: () => 42, setValue: updateSpy });
 
     const input = domQuery('.bio-properties-panel-input', result.container);
 
@@ -100,7 +106,7 @@ describe('<NumberField>', function() {
   it('should NOT update on invalid', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const step = '3';
 
@@ -113,6 +119,31 @@ describe('<NumberField>', function() {
 
     // then
     expect(updateSpy).to.not.have.been.called;
+  });
+
+
+  it('should not call setValue or validate if the value is same', function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+    const validateSpy = sinonSpy();
+
+    const result = createNumberField({
+      container,
+      getValue: () => 20.5,
+      setValue: setValueSpy,
+      validate: validateSpy
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    validateSpy.resetHistory();
+    changeInput(input, 20.5);
+
+    // then
+    expect(setValueSpy).to.not.have.been.called;
+    expect(validateSpy).to.not.have.been.called;
   });
 
 
@@ -286,7 +317,7 @@ describe('<NumberField>', function() {
       // given
       const validate = () => 'error';
 
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
 
       const result = createNumberField({ container, validate, setValue: setValueSpy });
       const entry = domQuery('.bio-properties-panel-entry .bio-properties-panel-input', result.container);
@@ -447,6 +478,22 @@ describe('<NumberField>', function() {
   });
 
 
+  describe('tooltip', function() {
+
+    it('should render tooltip', async function() {
+
+      // given
+      const result = createNumberField({ container, tooltip: 'tooltip-test' });
+
+      // when
+      fireEvent.mouseEnter(domQuery('.bio-properties-panel-tooltip-wrapper', result.container));
+
+      // then
+      await findByText(result.container, 'tooltip-test');
+    });
+  });
+
+
   describe('a11y', function() {
 
     it('should have no violations', async function() {
@@ -487,7 +534,8 @@ function createNumberField(options = {}, renderFn = render) {
     descriptionConfig = {},
     getDescriptionForId = noop,
     container,
-    errors = {}
+    errors = {},
+    tooltip
   } = options;
 
   const errorsContext = {
@@ -514,7 +562,9 @@ function createNumberField(options = {}, renderFn = render) {
           min={ min }
           setValue={ setValue }
           step={ step }
-          validate={ validate } />
+          validate={ validate }
+          tooltip={ tooltip }
+        />
       </DescriptionContext.Provider>
     </ErrorsContext.Provider>
     ,

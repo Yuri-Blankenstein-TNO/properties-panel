@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import EventBus from 'diagram-js/lib/core/EventBus';
 
 import { useStickyIntersectionObserver } from 'src/hooks';
@@ -6,6 +10,10 @@ import { renderHook, waitFor } from '@testing-library/preact';
 
 import TestContainer from 'mocha-test-container-support';
 import { EventContext } from '../../../src/context';
+
+
+const SCROLL_CONTAINER_SELECTOR = 'div.bio-properties-panel-scroll-container';
+
 
 describe('hooks/userStickyIntersectionObserver', function() {
 
@@ -33,17 +41,18 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should observe', async function() {
 
     // given
-    const observeSpy = sinon.spy();
+    const observeSpy = sinonSpy();
 
     mockIntersectionObserver({ observe: observeSpy });
 
-    const domObject = <div></div>;
+    const scrollContainer = createScrollContainer(container);
+    const domObject = createObserved(scrollContainer);
 
     // when
     const ref = { current: domObject };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, 'div', () => {});
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
       return domObject;
     });
@@ -56,17 +65,18 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should call for each entry', async function() {
 
     // given
-    const callbackSpy = sinon.spy();
+    const callbackSpy = sinonSpy();
 
     const triggerCallback = mockIntersectionObserver({});
 
-    const domObject = <div></div>;
+    const scrollContainer = createScrollContainer(container, { withContent: true });
+    const domObject = createObserved(scrollContainer);
 
     // when
     const ref = { current: domObject };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, 'div', callbackSpy);
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, callbackSpy);
 
       return domObject;
     });
@@ -86,7 +96,7 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should not observe if DOM not ready', async function() {
 
     // given
-    const observeSpy = sinon.spy();
+    const observeSpy = sinonSpy();
 
     mockIntersectionObserver({ observe: observeSpy });
 
@@ -94,7 +104,7 @@ describe('hooks/userStickyIntersectionObserver', function() {
     const ref = { current: undefined };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, 'div', () => {});
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
       return undefined;
     });
@@ -107,20 +117,17 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should not call when scrollContainer is unmounted', async function() {
 
     // given
-    const callbackSpy = sinon.spy();
+    const callbackSpy = sinonSpy();
 
     const triggerCallback = mockIntersectionObserver({});
 
-    const domObject = <div></div>;
-
-    const scrollContainer = document.createElement('div');
-    scrollContainer.setAttribute('id', 'scrollContainer');
-    container.appendChild(scrollContainer);
+    const scrollContainer = createScrollContainer(container, { withContent: true });
+    const domObject = createObserved(scrollContainer);
 
     const ref = { current: domObject };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, '#scrollContainer', callbackSpy);
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, callbackSpy);
 
       return domObject;
     });
@@ -139,15 +146,18 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should observe after being attached', async function() {
 
     // given
-    const observeSpy = sinon.spy();
+    const observeSpy = sinonSpy();
 
     mockIntersectionObserver({ observe: observeSpy });
 
-    const domObject = <div></div>;
+    const scrollContainer = createScrollContainer(container);
+
+    // observed element not yet inside its scroll container
+    const domObject = document.createElement('div');
     const ref = { current: domObject };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, '#scrollContainer', () => {});
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
       return domObject;
     }, { wrapper: WithEventContext(eventBus) });
@@ -156,9 +166,7 @@ describe('hooks/userStickyIntersectionObserver', function() {
     expect(observeSpy).not.to.have.been.called;
 
     // when
-    const scrollContainer = document.createElement('div');
-    scrollContainer.setAttribute('id', 'scrollContainer');
-    container.appendChild(scrollContainer);
+    scrollContainer.appendChild(domObject);
 
     eventBus.fire('propertiesPanel.attach');
 
@@ -173,16 +181,17 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should unobserve after unmount', async function() {
 
     // given
-    const unobserveSpy = sinon.spy();
+    const unobserveSpy = sinonSpy();
 
     mockIntersectionObserver({ unobserve: unobserveSpy });
 
-    const domObject = <div></div>;
+    const scrollContainer = createScrollContainer(container);
+    const domObject = createObserved(scrollContainer);
 
     const ref = { current: domObject };
 
     const { unmount } = await renderHook(() => {
-      useStickyIntersectionObserver(ref, 'div', () => {});
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
       return domObject;
     });
@@ -198,25 +207,23 @@ describe('hooks/userStickyIntersectionObserver', function() {
   it('should unobserve after being detached', async function() {
 
     // given
-    const unobserveSpy = sinon.spy();
+    const unobserveSpy = sinonSpy();
 
     mockIntersectionObserver({ unobserve: unobserveSpy });
 
-    const scrollContainer = document.createElement('div');
-    scrollContainer.setAttribute('id', 'scrollContainer');
-    container.appendChild(scrollContainer);
+    const scrollContainer = createScrollContainer(container);
+    const domObject = createObserved(scrollContainer);
 
-    const domObject = <div></div>;
     const ref = { current: domObject };
 
     await renderHook(() => {
-      useStickyIntersectionObserver(ref, '#scrollContainer', () => {});
+      useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
       return domObject;
     }, { wrapper: WithEventContext(eventBus) });
 
     // when
-    scrollContainer.remove();
+    domObject.remove();
     eventBus.fire('propertiesPanel.detach');
 
     // then
@@ -227,19 +234,64 @@ describe('hooks/userStickyIntersectionObserver', function() {
   });
 
 
+  it('should resolve scroll container relative to the observed element', async function() {
+
+    // given multiple panels mounted in the same document
+    const triggerCallback = mockIntersectionObserver({});
+
+    const scrollContainerOne = createScrollContainer(container);
+    const scrollContainerTwo = createScrollContainer(container);
+
+    const groupOne = createObserved(scrollContainerOne);
+    const groupTwo = createObserved(scrollContainerTwo);
+
+    const setStickyOne = sinonSpy();
+    const setStickyTwo = sinonSpy();
+
+    const refOne = { current: groupOne };
+    const refTwo = { current: groupTwo };
+
+    // when
+    await renderHook(() => {
+      useStickyIntersectionObserver(refOne, SCROLL_CONTAINER_SELECTOR, setStickyOne);
+
+      return groupOne;
+    });
+
+    await renderHook(() => {
+      useStickyIntersectionObserver(refTwo, SCROLL_CONTAINER_SELECTOR, setStickyTwo);
+
+      return groupTwo;
+    });
+
+    // then
+    // each observer is scoped to its OWN panel's scroll container,
+    // not the first scroll container found in document order
+    const observers = triggerCallback.instances;
+
+    expect(observers).to.have.length(2);
+    expect(observers[0].root).to.equal(scrollContainerOne);
+    expect(observers[1].root).to.equal(scrollContainerTwo);
+
+    expect(observers[0].observed).to.equal(groupOne);
+    expect(observers[1].observed).to.equal(groupTwo);
+  });
+
+
   it('should NOT crash when IntersectionObserver is not available', async function() {
 
     // given
     global.IntersectionObserver = null;
 
-    const domObject = <div></div>;
+    const scrollContainer = createScrollContainer(container);
+    const domObject = createObserved(scrollContainer);
 
     const ref = { current: domObject };
 
     // when
     try {
       await renderHook(() => {
-        useStickyIntersectionObserver(ref, 'div', () => {});
+        useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
 
         return domObject;
       });
@@ -249,6 +301,45 @@ describe('hooks/userStickyIntersectionObserver', function() {
       expect(error).not.to.exist;
     }
   });
+
+
+  describe('without IntersectionObserver', function() {
+
+    let originalDescriptor;
+
+    beforeEach(function() {
+      originalDescriptor = Object.getOwnPropertyDescriptor(window, 'IntersectionObserver');
+
+      // simulate environment without IntersectionObserver, e.g. jsdom
+      delete window.IntersectionObserver;
+    });
+
+    afterEach(function() {
+      Object.defineProperty(window, 'IntersectionObserver', originalDescriptor);
+    });
+
+
+    it('should NOT crash', async function() {
+
+      // given
+      const scrollContainer = createScrollContainer(container);
+      const domObject = createObserved(scrollContainer);
+
+      const ref = { current: domObject };
+
+      // when
+      const { result } = await renderHook(() => {
+        useStickyIntersectionObserver(ref, SCROLL_CONTAINER_SELECTOR, () => {});
+
+        return domObject;
+      });
+
+      // then
+      expect(result.current).to.equal(domObject);
+    });
+
+  });
+
 });
 
 
@@ -257,12 +348,57 @@ describe('hooks/userStickyIntersectionObserver', function() {
 function noop() {}
 
 /**
+ * Create a scroll container inside the given parent.
+ *
+ * @param {Element} parent
+ * @param {Object} [options]
+ * @param {boolean} [options.withContent=false] add overflowing content so the
+ *   container reports a non-zero `scrollHeight`
+ *
+ * @return {Element}
+ */
+function createScrollContainer(parent, options = {}) {
+  const { withContent = false } = options;
+
+  const scrollContainer = document.createElement('div');
+  scrollContainer.classList.add('bio-properties-panel-scroll-container');
+  scrollContainer.style.height = '100px';
+  scrollContainer.style.overflow = 'auto';
+
+  if (withContent) {
+    const content = document.createElement('div');
+    content.style.height = '500px';
+    scrollContainer.appendChild(content);
+  }
+
+  parent.appendChild(scrollContainer);
+
+  return scrollContainer;
+}
+
+/**
+ * Create an observed element inside the given scroll container.
+ *
+ * @param {Element} scrollContainer
+ *
+ * @return {Element}
+ */
+function createObserved(scrollContainer) {
+  const observed = document.createElement('div');
+
+  scrollContainer.appendChild(observed);
+
+  return observed;
+}
+
+/**
  * Overrides the IntersectionObserver global with a mock.
  *
  * @param {Object} props
  * @param {Object} [props.observe]
  * @param {Object} [props.unobserve]
- * @returns {Function} triggers the callback on all created observers
+ * @returns {Function} triggers the callback on all created observers; the
+ *   created observer instances are exposed via the `instances` property
  */
 function mockIntersectionObserver(props) {
   const {
@@ -271,18 +407,25 @@ function mockIntersectionObserver(props) {
   } = props;
 
   const callbacks = [];
+  const instances = [];
 
   function triggerCallbacks(args) {
     callbacks.forEach(callback => callback(args));
   }
 
   class MockObserver {
-    constructor(callback) {
+    constructor(callback, options = {}) {
+      this.root = options.root;
+      this.observed = null;
+
       callbacks.push(callback);
+      instances.push(this);
     }
 
-    observe() {
-      return observe();
+    observe(element) {
+      this.observed = element;
+
+      return observe(element);
     }
 
     unobserve() {
@@ -292,6 +435,8 @@ function mockIntersectionObserver(props) {
   }
 
   global.IntersectionObserver = MockObserver;
+
+  triggerCallbacks.instances = instances;
 
   return triggerCallbacks;
 }

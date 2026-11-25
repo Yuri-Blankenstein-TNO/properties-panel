@@ -1,5 +1,3 @@
-/* eslint-env node */
-
 const path = require('path');
 const { DefinePlugin } = require('webpack');
 
@@ -8,7 +6,7 @@ const babelConfig = require('./.babelrc');
 const basePath = '.';
 
 // configures browsers to run test against
-// any of [ 'ChromeHeadless', 'Chrome', 'Firefox', 'IE', 'PhantomJS' ]
+// any of [ 'ChromeHeadless', 'Chrome', 'Firefox' ]
 const browsers = (process.env.TEST_BROWSERS || 'ChromeHeadless').split(',');
 
 const singleStart = process.env.SINGLE_START;
@@ -17,21 +15,16 @@ const coverage = process.env.COVERAGE;
 
 const absoluteBasePath = path.resolve(path.join(__dirname, basePath));
 
-// use puppeteer provided Chrome for testing
-process.env.CHROME_BIN = require('puppeteer').executablePath();
-
 const suite = coverage ? 'test/coverageBundle.js' : 'test/testBundle.js';
 
 module.exports = function(karma) {
-
   const config = {
 
     basePath,
 
     frameworks: [
       'webpack',
-      'mocha',
-      'sinon-chai'
+      'mocha'
     ],
 
     files: [
@@ -42,7 +35,7 @@ module.exports = function(karma) {
       [ suite ]: [ 'webpack', 'env' ]
     },
 
-    reporters: [ 'progress' ].concat(coverage ? 'coverage' : []),
+    reporters: [ 'tldr' ].concat(coverage ? 'coverage' : []),
 
     coverageReporter: {
       reporters: [
@@ -59,6 +52,10 @@ module.exports = function(karma) {
       mode: 'development',
       module: {
         rules: [
+          {
+            test: /test\/globals\.js$/,
+            sideEffects: true
+          },
           {
             test: /\.(css)$/,
             use: 'raw-loader'

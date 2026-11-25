@@ -1,11 +1,10 @@
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, placeholder as placeholderExt, tooltips } from '@codemirror/view';
-import { languageServerWithTransport, LanguageServerClient } from 'codemirror-languageserver';
+import { languageServerWithTransport, LanguageServerClient, WebSocketTransport } from 'codemirror-languageserver';
 import { autocompletion, closeBrackets } from '@codemirror/autocomplete';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { setDiagnosticsEffect } from '@codemirror/lint';
-import { WebSocketTransport } from '@open-rpc/client-js';
 import { isFunction } from 'min-dash';
 
 import theme from './theme';

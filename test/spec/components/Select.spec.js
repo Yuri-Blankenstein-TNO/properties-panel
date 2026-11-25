@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import { act } from 'preact/test-utils';
 
 import {
@@ -129,7 +133,7 @@ describe('<Select>', function() {
     // given
     const getOptions = () => createOptions();
 
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const result = createSelect({ container, setValue: updateSpy, getOptions });
 
@@ -140,6 +144,34 @@ describe('<Select>', function() {
 
     // then
     expect(updateSpy).to.have.been.calledWith('B');
+  });
+
+
+  it('should not call setValue or validate if the value is same', function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+    const validateSpy = sinonSpy();
+
+    const getOptions = () => createOptions();
+
+    const result = createSelect({
+      container,
+      getValue: () => 'A',
+      setValue: setValueSpy,
+      validate: validateSpy,
+      getOptions
+    });
+
+    const select = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    validateSpy.resetHistory();
+    changeInput(select, 'A');
+
+    // then
+    expect(setValueSpy).to.not.have.been.called;
+    expect(validateSpy).to.not.have.been.called;
   });
 
 
@@ -280,7 +312,7 @@ describe('<Select>', function() {
       // given
       const eventBus = new EventBus();
 
-      const onShowSpy = sinon.spy();
+      const onShowSpy = sinonSpy();
 
       createSelect({
         container,
@@ -407,7 +439,7 @@ describe('<Select>', function() {
     it('should pass error to `setValue`', function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
       const validate = () => 'error';
       const getOptions = () => createOptions();
 

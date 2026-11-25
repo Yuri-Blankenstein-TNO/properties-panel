@@ -1,0 +1,102 @@
+import { useEffect, useRef } from 'preact/hooks';
+import { Popup } from './Popup';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
+/**
+ * @typedef {Object} TextPopupProps
+ * @property {string} entryId
+ * @property {Function} onInput
+ * @property {Function} onClose
+ * @property {string} title
+ * @property {string} value
+ * @property {HTMLElement} [sourceElement]
+ * @property {number} [width]
+ * @property {number} [height]
+ * @property {{top: number, left: number}} [position]
+ */
+
+export const TEXT_POPUP_WIDTH = 700;
+export const TEXT_POPUP_HEIGHT = 400;
+
+/**
+ * Plain text editor popup component.
+ *
+ * Intentionally kept separate from the FEEL popup: the two are expected to
+ * diverge as we add FEEL-specific capabilities that do not apply to plain text.
+ *
+ * @param {TextPopupProps} props
+ */
+export function TextPopup(props) {
+  const {
+    entryId,
+    onInput,
+    onClose,
+    title,
+    value,
+    sourceElement,
+    width = TEXT_POPUP_WIDTH,
+    height = TEXT_POPUP_HEIGHT,
+    position
+  } = props;
+
+  const editorRef = useRef();
+  const popupRef = useRef();
+
+  const handleSetReturnFocus = () => {
+    sourceElement && sourceElement.focus();
+  };
+
+  useEffect(() => {
+
+    // set focus on editor when popup is opened
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+  }, [ editorRef ]);
+
+  return (
+    <Popup
+      className="bio-properties-panel-text-popup"
+      title={ title }
+      returnFocus={ false }
+      closeOnEscape={ true }
+      delayInitialFocus={ false }
+      onClose={ onClose }
+      onPostDeactivate={ handleSetReturnFocus }
+      height={ height }
+      width={ width }
+      position={ position }
+      resizable
+      ref={ popupRef }
+    >
+      <Popup.Title
+        title={ title }
+        showCloseButton={ true }
+        closeButtonTooltip="Save and close"
+        onClose={ onClose }
+        draggable
+      />
+      <Popup.Body>
+        <textarea
+          id={ prefixId(entryId) }
+          name={ entryId }
+          class="bio-properties-panel-input"
+          ref={ editorRef }
+          onInput={ (e) => onInput(e.target.value) }
+          value={ value || '' }
+          spellCheck="false"
+          autoComplete="off"
+          aria-label={ title }
+          data-gramm="false"
+        />
+      </Popup.Body>
+    </Popup>
+  );
+}
+
+// The in-panel field stays mounted (hidden) while the popup is open, so we
+// scope the popup editor id to keep it unique in the DOM.
+function prefixId(id) {
+  return `bio-properties-panel-popup-${id}`;
+}

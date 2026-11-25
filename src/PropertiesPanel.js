@@ -21,6 +21,7 @@ import Placeholder from './components/Placeholder';
 
 import {
   DescriptionContext,
+  DiagnosticsContext,
   ErrorsContext,
   EventContext,
   LayoutContext,
@@ -28,10 +29,12 @@ import {
   TooltipContext
 } from './context';
 
-import { FeelPopupRoot } from './components/entries/FEEL';
 import { LspPopupRoot } from './components/entries/LSP';
+import { useEvent, useStaticCallback } from './hooks';
 
-import { useEvent } from './hooks';
+import { toDiagnostic, toErrorDiagnostic } from './components/util/diagnostics';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 const DEFAULT_LAYOUT = {};
 
@@ -52,7 +55,7 @@ const DEFAULT_TOOLTIP = {};
  *    autoOpen?: Boolean,
  *    entries: Array<EntryDefinition>,
  *    id: String,
- *    label: String,
+ *    label: String|import('preact').ComponentChildren,
  *    remove: (event: MouseEvent) => void
  * } } ListItemDefinition
  *
@@ -63,7 +66,8 @@ const DEFAULT_TOOLTIP = {};
  *    id: String,
  *    items: Array<ListItemDefinition>,
  *    label: String,
- *    shouldOpen?: Boolean
+ *    shouldOpen?: Boolean,
+ *    translate?: Function
  * } } ListGroupDefinition
  *
  * @typedef { {
@@ -71,7 +75,8 @@ const DEFAULT_TOOLTIP = {};
  *    entries: Array<EntryDefinition>,
  *    id: String,
  *    label: String,
- *    shouldOpen?: Boolean
+ *    shouldOpen?: Boolean,
+ *    translate?: Function
  * } } GroupDefinition
  *
  *  @typedef { {
@@ -106,9 +111,12 @@ const DEFAULT_TOOLTIP = {};
  * A basic properties panel component. Describes *how* content will be rendered, accepts
  * data from implementor to describe *what* will be rendered.
  *
+ * If `headerProvider` is omitted (or `null`), the built-in `<Header>` is not rendered;
+ * consumers can render `<Header>` standalone elsewhere using the same provider shape.
+ *
  * @param {Object} props
  * @param {Object|Array} props.element
- * @param {import('./components/Header').HeaderProvider} props.headerProvider
+ * @param {import('./components/Header').HeaderProvider} [props.headerProvider]
  * @param {PlaceholderProvider} [props.placeholderProvider]
  * @param {Array<GroupDefinition|ListGroupDefinition>} props.groups
  * @param {Object} [props.layoutConfig]
@@ -117,8 +125,8 @@ const DEFAULT_TOOLTIP = {};
  * @param {Function} [props.descriptionLoaded]
  * @param {TooltipConfig} [props.tooltipConfig]
  * @param {Function} [props.tooltipLoaded]
- * @param {HTMLElement} [props.feelPopupContainer]
- * @param {Function} [props.getFeelPopupLinks]
+ * @param {HTMLElement|string} [props.lspPopupContainer]
+ * @param {(languageId: string) => Array<{ title: string, href: string }>} [props.getLspPopupLinks]
  * @param {Object} [props.eventBus]
  */
 export default function PropertiesPanel(props) {
@@ -133,8 +141,6 @@ export default function PropertiesPanel(props) {
     descriptionLoaded,
     tooltipConfig,
     tooltipLoaded,
-    feelPopupContainer,
-    getFeelPopupLinks,
     lspPopupContainer,
     getLspPopupLinks,
     eventBus
@@ -150,7 +156,7 @@ export default function PropertiesPanel(props) {
     setLayout(newLayout);
   }, [ layoutConfig ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof layoutChanged === 'function') {
       layoutChanged(layout);
     }
@@ -161,9 +167,11 @@ export default function PropertiesPanel(props) {
   };
 
   const setLayoutForKey = (key, config) => {
-    const newLayout = assign({}, layout);
-    set(newLayout, key, config);
-    setLayout(newLayout);
+    setLayout((prevLayout) => {
+      const newLayout = assign({}, prevLayout);
+      set(newLayout, key, config);
+      return newLayout;
+    });
   };
 
   const layoutContext = {
@@ -172,6 +180,10 @@ export default function PropertiesPanel(props) {
     getLayoutForKey,
     setLayoutForKey
   };
+
+  const getLayoutContext = useStaticCallback(() => layoutContext);
+
+  useEvent('propertiesPanel.getLayoutContext', getLayoutContext, eventBus);
 
   // set-up description context
   const description = useMemo(() => createDescriptionContext(descriptionConfig), [ descriptionConfig ]);
@@ -210,15 +222,25 @@ export default function PropertiesPanel(props) {
     getTooltipForId
   };
 
-  const [ errors, setErrors ] = useState({});
+  const [ diagnostics, setDiagnostics ] = useState({});
 
-  const onSetErrors = ({ errors }) => setErrors(errors);
+  const onSetDiagnostics = ({ diagnostics }) => setDiagnostics(normalizeDiagnostics(diagnostics));
+
+  useEvent('propertiesPanel.setDiagnostics', onSetDiagnostics, eventBus);
+
+  // deprecated: `setErrors` is a shorthand for `setDiagnostics`, translating
+  // the string-only legacy shape into diagnostics
+  const onSetErrors = ({ errors }) => setDiagnostics(toDiagnosticsMap(errors));
 
   useEvent('propertiesPanel.setErrors', onSetErrors, eventBus);
 
-  const errorsContext = {
-    errors
-  };
+  const diagnosticsContext = useMemo(() => ({
+    diagnostics
+  }), [ diagnostics ]);
+
+  const errorsContext = useMemo(() => ({
+    errors: createErrors(diagnostics)
+  }), [ diagnostics ]);
 
   const eventContext = {
     eventBus
@@ -240,25 +262,23 @@ export default function PropertiesPanel(props) {
 
   return (
     <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
-      <ErrorsContext.Provider value={ errorsContext }>
-        <DescriptionContext.Provider value={ descriptionContext }>
-          <TooltipContext.Provider value={ tooltipContext }>
-            <LayoutContext.Provider value={ layoutContext }>
-              <EventContext.Provider value={ eventContext }>
-                <LspPopupRoot
-                  element={ element }
-                  eventBus={ eventBus }
-                  popupContainer={ lspPopupContainer }
-                  getPopupLinks={ getLspPopupLinks }>
-                  <FeelPopupRoot
+      <DiagnosticsContext.Provider value={ diagnosticsContext }>
+        <ErrorsContext.Provider value={ errorsContext }>
+          <DescriptionContext.Provider value={ descriptionContext }>
+            <TooltipContext.Provider value={ tooltipContext }>
+              <LayoutContext.Provider value={ layoutContext }>
+                <EventContext.Provider value={ eventContext }>
+                  <LspPopupRoot
                     element={ element }
                     eventBus={ eventBus }
-                    popupContainer={ feelPopupContainer }
-                    getPopupLinks={ getFeelPopupLinks }>
-                    <div class="bio-properties-panel">
-                      <Header
-                        element={ element }
-                        headerProvider={ headerProvider } />
+                    popupContainer={ lspPopupContainer }
+                    getPopupLinks={ getLspPopupLinks }>
+                    <div class="bio-properties-panel bio-theme-parent">
+                      { headerProvider ? (
+                        <Header
+                          element={ element }
+                          headerProvider={ headerProvider } />
+                      ) : null }
                       <div class="bio-properties-panel-scroll-container">
                         {
                           groups.map(group => {
@@ -277,19 +297,84 @@ export default function PropertiesPanel(props) {
                         }
                       </div>
                     </div>
-                  </FeelPopupRoot>
-                </LspPopupRoot>
-              </EventContext.Provider>
-            </LayoutContext.Provider>
-          </TooltipContext.Provider>
-        </DescriptionContext.Provider>
-      </ErrorsContext.Provider>
+                  </LspPopupRoot>
+                </EventContext.Provider>
+              </LayoutContext.Provider>
+            </TooltipContext.Provider>
+          </DescriptionContext.Provider>
+        </ErrorsContext.Provider>
+      </DiagnosticsContext.Provider>
     </PropertiesPanelContext.Provider>
   );
 }
 
 
 // helpers //////////////////
+
+/**
+ * Normalize a diagnostics map, keyed by entry ID.
+ *
+ * @param {Object<String, Array<String|import('./components/util/diagnostics').Diagnostic>>} diagnostics
+ *
+ * @returns {Object<String, Array<import('./components/util/diagnostics').Diagnostic>>}
+ */
+function normalizeDiagnostics(diagnostics) {
+  const normalized = {};
+
+  for (const id in diagnostics) {
+    normalized[ id ] = asArray(diagnostics[ id ]).map(diagnostic => toDiagnostic(diagnostic)).filter(Boolean);
+  }
+
+  return normalized;
+}
+
+/**
+ * Translate the deprecated errors, which carry a message and nothing else,
+ * into a diagnostics map, keyed by entry ID.
+ *
+ * @param {Object<String, String>} errors
+ *
+ * @returns {Object<String, Array<import('./components/util/diagnostics').Diagnostic>>}
+ */
+function toDiagnosticsMap(errors) {
+  const diagnostics = {};
+
+  for (const id in errors) {
+    const error = toErrorDiagnostic(errors[ id ]);
+
+    if (error) {
+      diagnostics[ id ] = [ error ];
+    }
+  }
+
+  return diagnostics;
+}
+
+/**
+ * Project the diagnostics of severity <error> to the deprecated errors,
+ * keyed by entry ID.
+ *
+ * @param {Object<String, Array<import('./components/util/diagnostics').Diagnostic>>} diagnostics
+ *
+ * @returns {Object<String, String>}
+ */
+function createErrors(diagnostics) {
+  const errors = {};
+
+  for (const id in diagnostics) {
+    const error = diagnostics[ id ].find(({ severity }) => severity === 'error');
+
+    if (error) {
+      errors[ id ] = error.message;
+    }
+  }
+
+  return errors;
+}
+
+function asArray(value) {
+  return isArray(value) ? value : [ value ];
+}
 
 function createLayout(overrides = {}, defaults = DEFAULT_LAYOUT) {
   return {

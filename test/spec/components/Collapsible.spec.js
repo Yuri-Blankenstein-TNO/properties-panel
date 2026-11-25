@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import { useContext } from 'preact/hooks';
 
 import {
@@ -128,6 +132,62 @@ describe('<Collapsible>', function() {
     expect(domClasses(entries).has('open')).to.be.true;
   });
 
+  it('should navigate a linked title without toggling, and toggle using the arrow', async function() {
+    const link = sinonSpy();
+    const { container } = createCollapsible({
+      container: parentContainer,
+      label: 'linked item',
+      link,
+      entries: [ { id: 'entry-1', component: TestEntry } ]
+    });
+
+    const entry = domQuery('.bio-properties-panel-collapsible-entry', container);
+    const entries = domQuery('.bio-properties-panel-collapsible-entry-entries', entry);
+
+    await act(() => domQuery('a', entry).click());
+    expect(link).to.have.been.calledOnce;
+    expect(domClasses(entries).has('open')).to.be.false;
+
+    await act(() => domQuery('.bio-properties-panel-collapsible-entry-arrow', entry).click());
+    expect(domClasses(entries).has('open')).to.be.true;
+  });
+
+
+  it('should NOT render toggle button when entry has no children', function() {
+
+    // when
+    const { container } = createCollapsible({ container: parentContainer });
+
+    const toggleButton = domQuery('.bio-properties-panel-collapsible-entry-arrow', container);
+
+    // then
+    expect(toggleButton).to.not.exist;
+  });
+
+
+  it('should NOT toggle on header click when entry has no children', async function() {
+
+    // given
+    const { container } = createCollapsible({ container: parentContainer });
+
+    const entry = domQuery('.bio-properties-panel-collapsible-entry', container);
+
+    const header = domQuery('.bio-properties-panel-collapsible-entry-header', entry);
+
+    const entries = domQuery('.bio-properties-panel-collapsible-entry-entries', entry);
+
+    // assume
+    expect(domClasses(entries).has('open')).to.be.false;
+
+    // when
+    await act(() => {
+      header.click();
+    });
+
+    // then
+    expect(domClasses(entries).has('open')).to.be.false;
+  });
+
 
   it('should provide onShow through context', async function() {
 
@@ -160,7 +220,7 @@ describe('<Collapsible>', function() {
   it('should bind remove callback', async function() {
 
     // given
-    const remove = sinon.spy();
+    const remove = sinonSpy();
 
     const { container } = createCollapsible({ container: parentContainer, remove });
 
@@ -266,6 +326,7 @@ function createCollapsible(options = {}) {
   const {
     id,
     label,
+    link,
     open,
     entries = [],
     remove,
@@ -278,6 +339,7 @@ function createCollapsible(options = {}) {
       id={ id }
       open={ open }
       label={ label }
+      link={ link }
       remove={ remove }
       entries={ entries }
       translate={ translate } />,

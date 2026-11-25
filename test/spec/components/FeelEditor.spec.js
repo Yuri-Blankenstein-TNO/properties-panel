@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import {
   render
 } from '@testing-library/preact/pure';
@@ -16,18 +20,27 @@ import { useEffect, useRef } from 'preact/hooks';
 import { fireEvent, waitFor } from '@testing-library/preact';
 
 import FeelComponent from 'src/components/entries/FEEL/FeelEditor';
+import FeelEditor from '@bpmn-io/feel-editor';
 
 insertCoreStyles();
 
 describe('<FeelEditor>', function() {
 
   let container;
+  let setEnginesSpy;
 
   beforeEach(function() {
     container = TestContainer.get(this);
   });
 
+  afterEach(function() {
+    setEnginesSpy?.restore();
+  });
+
   it('should supply variables to editor', async function() {
+
+    // increased timeout for slow Windows CI
+    this.timeout(5000);
 
     // given
     const variables = [
@@ -51,6 +64,7 @@ describe('<FeelEditor>', function() {
     const variableSuggestion = [ ...suggestions.children ].find(el => {
       return el.textContent === 'foo';
     });
+
     expect(variableSuggestion).to.exist;
   });
 
@@ -185,6 +199,80 @@ describe('<FeelEditor>', function() {
 
     expect(editor.textContent).to.eql('bar');
   });
+
+
+  it('should update engines when changed', function() {
+
+    // given
+    const engines = {
+      camunda: '8.8'
+    };
+
+    setEnginesSpy = sinonSpy(FeelEditor.prototype, 'setEngines');
+
+    const component = render(<Wrapper />, { container });
+
+    // when
+    component.rerender(<Wrapper feelLanguageContext={ { engines } } />);
+
+    // then
+    expect(setEnginesSpy).to.have.been.calledWith(engines);
+  });
+
+
+  it('should call <onOpenPopup> with feel type', async function() {
+
+    // given
+    const spy = sinonSpy();
+    render(<Wrapper onOpenPopup={ spy } />, { container });
+
+    const openPopupButton = domQuery('.bio-properties-panel-open-feel-popup', container);
+
+    // when
+    openPopupButton.click();
+
+    // then
+    expect(spy).to.have.been.calledWith('feel');
+  });
+
+
+  it('should fire onBlur when editor is blurred', async function() {
+
+    // given
+    const onBlurSpy = sinonSpy();
+    render(<Wrapper onBlur={ onBlurSpy } />, { container });
+
+    const editor = domQuery('[role="textbox"]', container);
+
+    // when
+    fireEvent.blur(editor);
+
+    // then
+    expect(onBlurSpy).to.have.been.calledOnce;
+  });
+
+
+  it('should be read-only when disabled', function() {
+
+    // given
+    render(<Wrapper disabled={ true } />, { container });
+
+    // then
+    const editor = domQuery('[role="textbox"]', container);
+    expect(editor.getAttribute('contenteditable')).to.equal('false');
+  });
+
+
+  it('should be editable when not disabled', function() {
+
+    // given
+    render(<Wrapper />, { container });
+
+    // then
+    const editor = domQuery('[role="textbox"]', container);
+    expect(editor.getAttribute('contenteditable')).to.equal('true');
+  });
+
 });
 
 
@@ -195,4 +283,3 @@ function Wrapper(props) {
 
   return <FeelComponent { ...props } ref={ ref } />;
 }
-
