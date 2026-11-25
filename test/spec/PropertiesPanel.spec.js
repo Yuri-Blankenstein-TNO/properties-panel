@@ -1,3 +1,7 @@
+import { expect } from 'chai';
+
+import { spy as sinonSpy } from 'sinon';
+
 import {
   act,
   render,
@@ -15,9 +19,15 @@ import {
   insertCoreStyles
 } from 'test/TestHelper';
 
+import EventBus from 'diagram-js/lib/core/EventBus';
+
 import PropertiesPanel from 'src/PropertiesPanel';
 
 import ListGroup from 'src/components/ListGroup';
+
+import { TextFieldEntry } from 'src/components/entries';
+
+import { useDiagnostics, useError } from 'src/hooks';
 
 import {
   HeaderProvider,
@@ -112,6 +122,37 @@ describe('<PropertiesPanel>', function() {
 
     // then
     expect(domQuery('.bio-properties-panel-header', result.container)).to.exist;
+    expect(domQuery('.bio-properties-panel-scroll-container', result.container)).to.exist;
+  });
+
+
+  it('should not render header - no header provider', function() {
+
+    // when
+    const result = createPropertiesPanel({
+      container,
+      element: noopElement,
+      headerProvider: null
+    });
+
+    // then
+    expect(domQuery('.bio-properties-panel-header', result.container)).to.not.exist;
+    expect(domQuery('.bio-properties-panel-scroll-container', result.container)).to.exist;
+  });
+
+
+  it('should not render header - header provider omitted', function() {
+
+    // when
+    const result = render(
+      <PropertiesPanel
+        element={ noopElement }
+        groups={ [] } />,
+      { container }
+    );
+
+    // then
+    expect(domQuery('.bio-properties-panel-header', result.container)).to.not.exist;
     expect(domQuery('.bio-properties-panel-scroll-container', result.container)).to.exist;
   });
 
@@ -265,7 +306,7 @@ describe('<PropertiesPanel>', function() {
         foo: 'bar'
       };
 
-      const layoutChangedSpy = sinon.spy();
+      const layoutChangedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -285,7 +326,7 @@ describe('<PropertiesPanel>', function() {
 
       // given
       const DEFAULT_LAYOUT = {};
-      const layoutChangedSpy = sinon.spy();
+      const layoutChangedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -310,7 +351,7 @@ describe('<PropertiesPanel>', function() {
         }
       ];
 
-      const layoutChangedSpy = sinon.spy();
+      const layoutChangedSpy = sinonSpy();
 
       // when
       const result = createPropertiesPanel({
@@ -346,7 +387,7 @@ describe('<PropertiesPanel>', function() {
         foo: 'bar'
       };
 
-      const layoutChangedSpy = sinon.spy();
+      const layoutChangedSpy = sinonSpy();
 
       const options = {
         container,
@@ -372,6 +413,75 @@ describe('<PropertiesPanel>', function() {
       expect(layoutChangedSpy).to.have.been.calledWith(updatedLayoutConfig);
     });
 
+
+    it('should use actual layout state in setLayoutForKey handler', async function() {
+
+      // given
+      const groups = [
+        {
+          id: 'group-1',
+          label: 'Group 1',
+          entries: []
+        },
+        {
+          id: 'group-2',
+          label: 'Group 2',
+          entries: []
+        }
+      ];
+
+      const layoutChangedSpy = sinonSpy();
+
+      const initialLayoutConfig = {
+        open: false,
+        width: 430
+      };
+
+      const options = {
+        container,
+        element: noopElement,
+        groups,
+        layoutConfig: initialLayoutConfig,
+        layoutChanged: layoutChangedSpy
+      };
+
+      const { rerender } = createPropertiesPanel(options);
+
+      // when
+      const updatedLayoutConfig = {
+        open: true,
+        width: 330,
+        groups: {
+          'group-1': { open: true }
+        }
+      };
+
+      createPropertiesPanel({
+        ...options,
+        layoutConfig: updatedLayoutConfig
+      }, rerender);
+
+      const result = { container };
+
+      // when
+      const group2 = domQuery('[data-group-id="group-group-2"]', result.container);
+      const header2 = domQuery('.bio-properties-panel-group-header', group2);
+
+      await act(() => {
+        header2.click();
+      });
+
+      // then
+      expect(layoutChangedSpy).to.have.been.calledWith({
+        open: true,
+        width: 330,
+        groups: {
+          'group-1': { open: true },
+          'group-2': { open: true },
+        }
+      });
+    });
+
   });
 
 
@@ -384,7 +494,7 @@ describe('<PropertiesPanel>', function() {
         input1: (element, translate) => undefined
       };
 
-      const descriptionLoadedSpy = sinon.spy();
+      const descriptionLoadedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -403,7 +513,7 @@ describe('<PropertiesPanel>', function() {
     it('should use default config, given no config provided', async function() {
 
       // given
-      const descriptionLoadedSpy = sinon.spy();
+      const descriptionLoadedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -421,6 +531,205 @@ describe('<PropertiesPanel>', function() {
   });
 
 
+  describe('diagnostics', function() {
+
+    const groups = [
+      {
+        id: 'group-1',
+        label: 'Group 1',
+        entries: [
+          { id: 'entry-1', component: DiagnosticsEntry }
+        ]
+      }
+    ];
+
+    it('should set diagnostics through event', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setDiagnostics', {
+        diagnostics: {
+          'entry-1': [ { severity: 'warning', message: 'bar' } ]
+        }
+      }));
+
+      // then
+      expect(domQuery('.diagnostics', result.container).textContent).to.eql('warning:bar');
+    });
+
+
+    it('should expose deprecated errors as diagnostics', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setErrors', {
+        errors: { 'entry-1': 'bar' }
+      }));
+
+      // then
+      expect(domQuery('.diagnostics', result.container).textContent).to.eql('error:bar');
+    });
+
+
+    it('should expose errors to deprecated consumers', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setDiagnostics', {
+        diagnostics: {
+          'entry-1': [ { severity: 'error', message: 'bar' } ]
+        }
+      }));
+
+      // then
+      expect(domQuery('.error', result.container).textContent).to.eql('bar');
+    });
+
+
+    it('should NOT expose warnings to deprecated consumers', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setDiagnostics', {
+        diagnostics: {
+          'entry-1': [ { severity: 'warning', message: 'bar' } ]
+        }
+      }));
+
+      // then
+      expect(domQuery('.error', result.container).textContent).to.be.empty;
+    });
+
+
+    it('should replace diagnostics when errors are set afterwards', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      act(() => eventBus.fire('propertiesPanel.setDiagnostics', {
+        diagnostics: {
+          'entry-1': [ { severity: 'warning', message: 'old diagnostic' } ]
+        }
+      }));
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setErrors', {
+        errors: { 'entry-1': 'new error' }
+      }));
+
+      // then
+      expect(domQuery('.diagnostics', result.container).textContent).to.eql('error:new error');
+    });
+
+
+    it('should replace errors when diagnostics are set afterwards', function() {
+
+      // given
+      const eventBus = new EventBus();
+
+      const result = createPropertiesPanel({ container, element: noopElement, groups, eventBus });
+
+      act(() => eventBus.fire('propertiesPanel.setErrors', {
+        errors: { 'entry-1': 'old error' }
+      }));
+
+      // when
+      act(() => eventBus.fire('propertiesPanel.setDiagnostics', {
+        diagnostics: {
+          'entry-1': [ { severity: 'warning', message: 'new diagnostic' } ]
+        }
+      }));
+
+      // then
+      expect(domQuery('.diagnostics', result.container).textContent).to.eql('warning:new diagnostic');
+      expect(domQuery('.error', result.container).textContent).to.be.empty;
+    });
+
+
+
+    describe('action', function() {
+
+      const textGroups = [
+        {
+          id: 'group-1',
+          label: 'Group 1',
+          entries: [
+            { id: 'entry-1', component: TextFieldComponent },
+            { id: 'entry-2', component: TextFieldComponent }
+          ]
+        }
+      ];
+
+      const diagnostics = {
+        'entry-1': [ {
+          severity: 'error',
+          message: 'bar',
+          action: { label: 'Fix', onClick: () => {} }
+        } ]
+      };
+
+      const layoutConfig = { groups: { 'group-1': { open: true } } };
+
+      let eventBus, result;
+
+      beforeEach(function() {
+        eventBus = new EventBus();
+
+        result = createPropertiesPanel({ container, element: noopElement, groups: textGroups, eventBus, layoutConfig });
+
+        act(() => eventBus.fire('propertiesPanel.setDiagnostics', { diagnostics }));
+      });
+
+
+      it('should restore focus to field if diagnostic is removed through event', function() {
+
+        // given
+        domQuery('.bio-properties-panel-diagnostic-action', result.container).focus();
+
+        // when
+        act(() => eventBus.fire('propertiesPanel.setDiagnostics', { diagnostics: {} }));
+
+        // then
+        expect(document.activeElement).to.equal(domQuery('#bio-properties-panel-entry-1', result.container));
+      });
+
+
+      it('should keep focus elsewhere if diagnostic is removed through event', function() {
+
+        // given
+        const other = domQuery('#bio-properties-panel-entry-2', result.container);
+
+        other.focus();
+
+        // when
+        act(() => eventBus.fire('propertiesPanel.setDiagnostics', { diagnostics: {} }));
+
+        // then
+        expect(document.activeElement).to.equal(other);
+      });
+
+    });
+  });
+
+
   describe('tooltip context', function() {
 
     it('should notify on tooltip loaded', function() {
@@ -430,7 +739,7 @@ describe('<PropertiesPanel>', function() {
         input1: (element, translate) => undefined
       };
 
-      const tooltipLoadedSpy = sinon.spy();
+      const tooltipLoadedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -448,7 +757,7 @@ describe('<PropertiesPanel>', function() {
     it('should use default config, given no config provided', async function() {
 
       // given
-      const tooltipLoadedSpy = sinon.spy();
+      const tooltipLoadedSpy = sinonSpy();
 
       // when
       createPropertiesPanel({
@@ -483,7 +792,8 @@ function createPropertiesPanel(options = {}, renderFn = render) {
     descriptionConfig,
     descriptionLoaded = noop,
     tooltipConfig,
-    tooltipLoaded = noop
+    tooltipLoaded = noop,
+    eventBus
   } = options;
 
   return renderFn(
@@ -498,11 +808,39 @@ function createPropertiesPanel(options = {}, renderFn = render) {
       descriptionLoaded={ descriptionLoaded }
       tooltipConfig={ tooltipConfig }
       tooltipLoaded={ tooltipLoaded }
+      eventBus={ eventBus }
     />,
     {
       container
     }
   );
+}
+
+function TextFieldComponent(props) {
+  const { id, element } = props;
+
+  return TextFieldEntry({
+    id,
+    element,
+    label: id,
+    debounce: fn => fn,
+    getValue: () => '',
+    setValue: noop
+  });
+}
+
+function DiagnosticsEntry(props) {
+  const { id = 'entry-1' } = props;
+
+  const diagnostics = useDiagnostics(id);
+  const error = useError(id);
+
+  return <div class="bio-properties-panel-entry" data-entry-id={ id }>
+    <span class="diagnostics">
+      { diagnostics.map(({ severity, message }) => `${ severity }:${ message }`).join(',') }
+    </span>
+    <span class="error">{ error || '' }</span>
+  </div>;
 }
 
 function TestEntry(props) {

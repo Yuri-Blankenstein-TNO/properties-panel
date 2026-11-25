@@ -18,16 +18,19 @@ import {
   isFunction
 } from 'min-dash';
 
-import {
-  useErrors,
-  useLayoutState
-} from '../hooks';
+import { useLayoutState } from '../hooks';
+
+import { useGroupDiagnostic } from '../hooks/useDiagnostics';
 
 import { PropertiesPanelContext } from '../context';
 
 import { useStickyIntersectionObserver } from '../hooks';
 
 import { ArrowIcon } from './icons';
+
+import translateFallback from './util/translateFallback';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 /**
  * @param {import('../PropertiesPanel').GroupDefinition} props
@@ -39,6 +42,7 @@ export default function Group(props) {
     id,
     label,
     shouldOpen = false,
+    translate = translateFallback,
   } = props;
 
   const groupRef = useRef(null);
@@ -84,9 +88,8 @@ export default function Group(props) {
     return () => cancelAnimationFrame(scheduled);
   }, [ entries, setEdited ]);
 
-  // set error state depending on all entries
-  const allErrors = useErrors();
-  const hasErrors = entries.some(entry => allErrors[entry.id]);
+  // set severity state depending on all entries
+  const diagnostic = useGroupDiagnostic(entries);
 
   // set css class when group is sticky to top
   useStickyIntersectionObserver(groupRef, 'div.bio-properties-panel-scroll-container', setSticky);
@@ -104,11 +107,9 @@ export default function Group(props) {
       (sticky && open) ? 'sticky' : ''
     ) } onClick={ toggleOpen }>
       <div
-        title={ props.tooltip ? null : label }
-        data-title={ label }
         class="bio-properties-panel-group-header-title"
       >
-        <Tooltip value={ props.tooltip } forId={ 'group-' + id } element={ element } parent={ groupRef }>
+        <Tooltip value={ props.tooltip } forId={ 'group-' + id } element={ element }>
           { label }
         </Tooltip>
       </div>
@@ -116,12 +117,13 @@ export default function Group(props) {
         {
           <DataMarker
             edited={ edited }
-            hasErrors={ hasErrors }
+            severity={ diagnostic?.severity }
+            translate={ translate }
           />
         }
         <button
           type="button"
-          title="Toggle section"
+          title={ translate('Toggle section') }
           class="bio-properties-panel-group-header-button bio-properties-panel-arrow"
         >
           <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
@@ -156,18 +158,25 @@ export default function Group(props) {
 function DataMarker(props) {
   const {
     edited,
-    hasErrors
+    severity,
+    translate = translateFallback
   } = props;
 
-  if (hasErrors) {
+  if (severity === 'error') {
     return (
-      <div title="Section contains an error" class="bio-properties-panel-dot bio-properties-panel-dot--error"></div>
+      <div title={ translate('Section contains an error') } class="bio-properties-panel-dot bio-properties-panel-dot--error"></div>
+    );
+  }
+
+  if (severity === 'warning') {
+    return (
+      <div title={ translate('Section contains a warning') } class="bio-properties-panel-dot bio-properties-panel-dot--warning"></div>
     );
   }
 
   if (edited) {
     return (
-      <div title="Section contains data" class="bio-properties-panel-dot"></div>
+      <div title={ translate('Section contains edits') } class="bio-properties-panel-dot"></div>
     );
   }
   return null;

@@ -1,8 +1,12 @@
+import { expect } from 'chai';
+
 import {
   fireEvent
 } from '@testing-library/preact';
 
 import axe from 'axe-core';
+
+export * from './helper';
 
 /**
  * https://www.deque.com/axe/core-documentation/api-documentation/#axe-core-tags

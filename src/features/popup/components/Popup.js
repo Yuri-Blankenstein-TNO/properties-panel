@@ -1,0 +1,361 @@
+import { forwardRef } from 'preact/compat';
+
+import { useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+
+import classNames from 'classnames';
+
+import * as focusTrap from 'focus-trap';
+
+import { isDefined } from 'min-dash';
+
+import { DragIcon, CloseIcon } from '../../../components/icons';
+
+import { EventContext } from '../../../context';
+
+import { createDragger } from '../../../components/util/dragger';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
+const noop = () => {};
+
+export const POPUP_MIN_WIDTH = 300;
+export const POPUP_MIN_HEIGHT = 200;
+
+/**
+ * A generic popup component.
+ *
+ * @param {Object} props
+ * @param {string} [props.className]
+ * @param {boolean} [props.delayInitialFocus]
+ * @param {{top: number, left: number}} [props.position]
+ * @param {number} [props.width]
+ * @param {number} [props.height]
+ * @param {boolean} [props.resizable=false]
+ * @param {number} [props.minWidth=300]
+ * @param {number} [props.minHeight=200]
+ * @param {Function} props.onClose
+ * @param {Function} [props.onPostActivate]
+ * @param {Function} [props.onPostDeactivate]
+ * @param {boolean} [props.returnFocus]
+ * @param {boolean} [props.closeOnEscape]
+ * @param {(event: KeyboardEvent) => boolean} [props.allowFocusMove] -
+ *   Whether a Tab keypress may move focus. Return false to leave the keypress
+ *   to the focused element, e.g. an editor navigating snippet placeholders.
+ * @param {string} props.title
+ * @param {Ref} [ref]
+ */
+function PopupComponent(props, globalRef) {
+  const {
+    className,
+    delayInitialFocus,
+    position,
+    width,
+    height,
+    resizable = false,
+    minWidth = POPUP_MIN_WIDTH,
+    minHeight = POPUP_MIN_HEIGHT,
+    onClose,
+    onPostActivate = noop,
+    onPostDeactivate = noop,
+    returnFocus = true,
+    closeOnEscape = true,
+    allowFocusMove = () => true,
+    title
+  } = props;
+
+  const focusTrapRef = useRef(null);
+  const localRef = useRef(null);
+  const popupRef = globalRef || localRef;
+
+  const handleKeydown = (event) => {
+
+    // do not allow keyboard events to bubble
+    event.stopPropagation();
+
+    if (closeOnEscape && event.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  // re-activate focus trap on focus
+  const handleFocus = () => {
+    if (focusTrapRef.current) {
+      focusTrapRef.current.activate();
+    }
+  };
+
+  const { top, left } = position || getCenterPosition(
+    width,
+    height,
+    resizable ? { minWidth, minHeight } : null
+  );
+
+  const style = {};
+
+  if (resizable) {
+    style.minWidth = `min(${minWidth}px, 90vw)`;
+    style.minHeight = `min(${minHeight}px, 90vh)`;
+  }
+
+  if (isDefined(top) && isDefined(left)) {
+    style.top = top + 'px';
+    style.left = left + 'px';
+  }
+
+  if (width) {
+    style.width = width + 'px';
+  }
+
+  if (height) {
+    style.height = height + 'px';
+  }
+
+  useLayoutEffect(() => {
+    if (!position || !popupRef.current) {
+      return;
+    }
+
+    const popup = popupRef.current;
+    const { width, height } = popup.getBoundingClientRect();
+
+    popup.style.top = Math.max(0, Math.min(position.top, window.innerHeight - height)) + 'px';
+    popup.style.left = Math.max(0, Math.min(position.left, window.innerWidth - width)) + 'px';
+  }, [ position, width, height, popupRef ]);
+
+  useEffect(() => {
+    if (popupRef.current) {
+      popupRef.current.addEventListener('focusin', handleFocus);
+    }
+
+    return () => {
+      if (popupRef.current) {
+        popupRef.current.removeEventListener('focusin', handleFocus);
+      }
+    };
+  }, [ popupRef ]);
+
+  useEffect(() => {
+    if (popupRef.current) {
+      focusTrapRef.current = focusTrap.createFocusTrap(popupRef.current, {
+        clickOutsideDeactivates: true,
+        delayInitialFocus,
+        fallbackFocus: popupRef.current,
+        isKeyForward: (event) => isTab(event) && !event.shiftKey && allowFocusMove(event),
+        isKeyBackward: (event) => isTab(event) && event.shiftKey && allowFocusMove(event),
+        onPostActivate,
+        onPostDeactivate,
+        returnFocusOnDeactivate: returnFocus,
+      });
+
+      focusTrapRef.current.activate();
+    }
+
+    return () => focusTrapRef.current && focusTrapRef.current.deactivate();
+  }, [ popupRef ]);
+
+  return (
+    <div
+      aria-label={ title }
+      tabIndex={ -1 }
+      ref={ popupRef }
+      onKeyDown={ handleKeydown }
+      role="dialog"
+      class={ classNames('bio-properties-panel-popup', 'bio-theme-parent', resizable && 'resizable', className) }
+      style={ style }
+    >
+      {props.children}
+    </div>
+  );
+}
+
+export const Popup = forwardRef(PopupComponent);
+
+Popup.Title = Title;
+Popup.Body = Body;
+Popup.Footer = Footer;
+
+export {
+  Title as PopupTitle,
+  Body as PopupBody,
+  Footer as PopupFooter
+};
+
+function Title(props) {
+  const { eventBus } = useContext(EventContext);
+
+  const {
+    children,
+    className,
+    draggable,
+    title,
+    showCloseButton = false,
+    closeButtonTooltip = 'Close popup',
+    onClose,
+    ...rest
+  } = props;
+
+  // we can't use state as we need to
+  // manipulate this inside dragging events
+  const context = useRef({
+    startPosition: null,
+    newPosition: null,
+  });
+
+  const dragPreviewRef = useRef();
+
+  const titleRef = useRef();
+
+  const onMove = (event, delta) => {
+    cancel(event);
+
+    const { x: dx, y: dy } = delta;
+
+    const newPosition = {
+      x: context.current.startPosition.x + dx,
+      y: context.current.startPosition.y + dy,
+    };
+
+    const popupParent = getPopupParent(titleRef.current);
+
+    popupParent.style.top = newPosition.y + 'px';
+    popupParent.style.left = newPosition.x + 'px';
+
+    eventBus?.fire('feelPopup.dragover', { newPosition, delta });
+  };
+
+  const onMoveStart = (event) => {
+
+    // initialize drag handler
+    const onDragStart = createDragger(onMove, dragPreviewRef.current);
+    onDragStart(event);
+
+    event.stopPropagation();
+
+    const popupParent = getPopupParent(titleRef.current);
+
+    const bounds = popupParent.getBoundingClientRect();
+    context.current.startPosition = {
+      x: bounds.left,
+      y: bounds.top,
+    };
+
+    eventBus?.fire('feelPopup.dragstart');
+  };
+
+  const onMoveEnd = () => {
+    context.current.newPosition = null;
+
+    eventBus?.fire('feelPopup.dragend');
+  };
+
+  return (
+    <div
+      class={ classNames(
+        'bio-properties-panel-popup__header',
+        draggable && 'draggable',
+        className
+      ) }
+      ref={ titleRef }
+      draggable={ draggable }
+      onDragStart={ onMoveStart }
+      onDragEnd={ onMoveEnd }
+      { ...rest }
+    >
+      {draggable && (
+        <>
+          <div
+            ref={ dragPreviewRef }
+            class="bio-properties-panel-popup__drag-preview"
+          ></div>
+          <div class="bio-properties-panel-popup__drag-handle">
+            <DragIcon />
+          </div>
+        </>
+      )}
+      <div class="bio-properties-panel-popup__title">{title}</div>
+      {children}
+      {showCloseButton && (
+        <button
+          type="button"
+          title={ closeButtonTooltip }
+          class="bio-properties-panel-popup__close"
+          onClick={ onClose }
+        >
+          <CloseIcon />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Body(props) {
+  const { children, className, ...rest } = props;
+
+  return (
+    <div
+      class={ classNames('bio-properties-panel-popup__body', className) }
+      { ...rest }
+    >
+      {children}
+    </div>
+  );
+}
+
+function Footer(props) {
+  const { children, className, ...rest } = props;
+
+  return (
+    <div
+      class={ classNames('bio-properties-panel-popup__footer', className) }
+      { ...rest }
+    >
+      {props.children}
+    </div>
+  );
+}
+
+// helpers //////////////////////
+
+/**
+ * Center the popup in the viewport, based on its own dimensions.
+ *
+ * @param {number} [width]
+ * @param {number} [height]
+ * @param {{ minWidth: number, minHeight: number }} [constraints]
+ */
+function getCenterPosition(width, height, constraints) {
+  if (!width || !height) {
+    return {};
+  }
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+  // account for size constraints applied to resizable popups
+  if (constraints) {
+    width = constrainDimension(width, constraints.minWidth, viewportWidth * 0.9);
+    height = constrainDimension(height, constraints.minHeight, viewportHeight * 0.9);
+  }
+
+  return {
+    left: Math.max(0, (viewportWidth - width) / 2),
+    top: Math.max(0, (viewportHeight - height) / 2)
+  };
+}
+
+function constrainDimension(value, min, max) {
+  return Math.max(Math.min(value, max), Math.min(min, max));
+}
+
+function isTab(event) {
+  return event.key === 'Tab';
+}
+
+function getPopupParent(node) {
+  return node.closest('.bio-properties-panel-popup');
+}
+
+function cancel(event) {
+  event.preventDefault();
+  event.stopPropagation();
+}

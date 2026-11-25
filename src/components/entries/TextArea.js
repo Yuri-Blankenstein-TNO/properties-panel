@@ -1,73 +1,79 @@
 import Description from './Description';
+import DiagnosticMessage from './Diagnostic';
 
 import {
   useCallback,
+  useContext,
   useEffect,
-  useLayoutEffect,
-  useMemo,
+  useRef,
   useState
 } from 'preact/hooks';
 
 import classnames from 'classnames';
 
 import {
-  useError,
+  useDebounce,
+  useDiagnostics,
   useShowEntryEvent,
-  useElementVisible,
+  useStaticCallback
 } from '../../hooks';
 
 import { isFunction } from 'min-dash';
 import Tooltip from './Tooltip';
+import { OpenPopupButton } from '../OpenPopupButton';
+import { EventContext } from '../../context';
+import { isCmdWithChar } from '../util/keyboardUtils';
+import translateFallback from '../util/translateFallback';
+import { getDiagnosticClass, getMostSevere } from '../util/diagnostics';
 
-function resizeToContents(element) {
-  element.style.height = 'auto';
-
-  // a 2px pixel offset is required to prevent scrollbar from
-  // appearing on OS with a full length scroll bar (Windows/Linux)
-  element.style.height = `${ element.scrollHeight + 2 }px`;
-}
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 function TextArea(props) {
 
   const {
     id,
+    element,
     label,
     debounce,
-    onInput,
+    onInput: commitValue,
     value = '',
     disabled,
     monospace,
     onFocus,
     onBlur,
+    onPaste,
     autoResize = true,
     placeholder,
     rows = autoResize ? 1 : 2,
-    tooltip
+    tooltip,
+    translate = translateFallback
   } = props;
 
   const [ localValue, setLocalValue ] = useState(value);
 
   const ref = useShowEntryEvent(id);
+  const containerRef = useRef();
 
-  const visible = useElementVisible(ref.current);
+  // keep a live reference to the current value so callbacks captured by the
+  // popup (frozen at open time) can compare against the latest value
+  const localValueRef = useRef(localValue);
+  localValueRef.current = localValue;
+
+  const { eventBus } = useContext(EventContext);
+
+  const [ isPopupOpen, setIsPopupOpen ] = useState(false);
+
+  const onInput = useCallback(newValue => {
+    const newModelValue = newValue === '' ? undefined : newValue;
+    commitValue(newModelValue);
+  }, [ commitValue ]);
 
   /**
    * @type { import('min-dash').DebouncedFunction }
    */
-  const handleInputCallback = useMemo(() => {
-    return debounce((newValue) => {
-      onInput(newValue);
-    });
-  }, [ onInput, debounce ]);
-
-  const handleInput = newValue => {
-    const newModelValue = newValue === '' ? undefined : newValue;
-    handleInputCallback(newModelValue);
-  };
+  const handleInput = useDebounce(onInput, debounce);
 
   const handleLocalInput = e => {
-    autoResize && resizeToContents(e.target);
-
     if (e.target.value === localValue) {
       return;
     }
@@ -77,25 +83,84 @@ function TextArea(props) {
   };
 
   const handleOnBlur = e => {
-    const value = e.target.value;
+    const trimmedValue = e.target.value.trim();
 
-    if (value.trim() !== value) {
-      setLocalValue(value.trim());
-      handleInput(value.trim());
-    }
+    // trim and commit on blur
+    handleInput.cancel?.();
+    onInput(trimmedValue);
+    setLocalValue(trimmedValue);
 
     if (onBlur) {
       onBlur(e);
     }
   };
 
-  useLayoutEffect(() => {
-    autoResize && resizeToContents(ref.current);
-  }, []);
+  const handleOnPaste = e => {
+    const input = e.target;
+    const isFieldEmpty = !input.value;
+    const isAllSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
 
-  useLayoutEffect(() => {
-    visible && autoResize && resizeToContents(ref.current);
-  }, [ visible ]);
+    // Trim and handle paste if field is empty or all content is selected
+    if (isFieldEmpty || isAllSelected) {
+      const trimmedValue = e.clipboardData.getData('text').trim();
+
+      setLocalValue(trimmedValue);
+      handleInput(trimmedValue);
+
+      if (onPaste) {
+        onPaste(e);
+      }
+
+      e.preventDefault();
+      return;
+    }
+
+    // Allow default paste behavior for normal text editing
+    if (onPaste) {
+      onPaste(e);
+    }
+  };
+
+  const handleOnKeyDown = e => {
+    if (isCmdWithChar(e)) {
+      handleInput.flush?.();
+    }
+  };
+
+  const handlePopupInput = newValue => {
+    if (newValue === localValueRef.current) {
+      return;
+    }
+
+    setLocalValue(newValue);
+    handleInput(newValue);
+  };
+
+  const handleOpenPopup = () => {
+    const isOpen = eventBus.fire('propertiesPanel.openPopup', {
+      element,
+      entryId: id,
+      label,
+      onInput: handlePopupInput,
+      sourceElement: ref.current,
+      value: localValue
+    });
+
+    if (isOpen) {
+      eventBus.once('propertiesPanelPopup.close', () => {
+        handleInput.flush?.();
+        setIsPopupOpen(false);
+      });
+    }
+
+    setIsPopupOpen(isOpen === true);
+  };
+
+  useEffect(() => {
+    return () => {
+      eventBus && eventBus.fire('propertiesPanel.closePopup');
+    };
+  }, []);
 
   useEffect(() => {
     if (value === localValue) {
@@ -108,29 +173,52 @@ function TextArea(props) {
   return (
     <div class="bio-properties-panel-textarea">
       <label for={ prefixId(id) } class="bio-properties-panel-label">
-        <Tooltip value={ tooltip } forId={ id } element={ props.element }>
+        <Tooltip value={ tooltip } forId={ id } element={ element }>
           { label }
         </Tooltip>
       </label>
-      <textarea
-        ref={ ref }
-        id={ prefixId(id) }
-        name={ id }
-        spellCheck="false"
+      <div
         class={ classnames(
-          'bio-properties-panel-input',
-          monospace ? 'bio-properties-panel-input-monospace' : '',
-          autoResize ? 'auto-resize' : '')
+          'bio-properties-panel-textarea-container',
+          isPopupOpen ? 'popupOpen' : null)
         }
-        onInput={ handleLocalInput }
-        onFocus={ onFocus }
-        onBlur={ handleOnBlur }
-        placeholder={ placeholder }
-        rows={ rows }
-        value={ localValue }
-        disabled={ disabled }
-        data-gramm="false"
-      />
+        ref={ containerRef }
+      >
+        {
+          isPopupOpen &&
+            <div class="bio-properties-panel-textarea__open-popup-placeholder">
+              { translate('Opened in editor') }
+            </div>
+        }
+        <textarea
+          ref={ ref }
+          id={ prefixId(id) }
+          name={ id }
+          spellCheck="false"
+          class={ classnames(
+            'bio-properties-panel-input',
+            monospace ? 'bio-properties-panel-input-monospace' : '',
+            autoResize ? 'auto-resize' : '')
+          }
+          onInput={ handleLocalInput }
+          onFocus={ onFocus }
+          onKeyDown={ handleOnKeyDown }
+          onBlur={ handleOnBlur }
+          onPaste={ handleOnPaste }
+          placeholder={ placeholder }
+          rows={ rows }
+          value={ localValue }
+          disabled={ disabled }
+          data-gramm="false"
+        />
+        {
+          eventBus && !disabled &&
+            <OpenPopupButton
+              onClick={ handleOpenPopup }
+              translate={ translate }
+            />
+        }
+      </div>
     </div>
   );
 }
@@ -146,10 +234,12 @@ function TextArea(props) {
  * @param {Function} props.setValue
  * @param {Function} props.onFocus
  * @param {Function} props.onBlur
+ * @param {Function} props.onPaste
  * @param {number} props.rows
  * @param {boolean} props.monospace
- * @param {Function} [props.validate]
+ * @param {import('../util/diagnostics').ValidateFunction} [props.validate]
  * @param {boolean} [props.disabled]
+ * @param {Function} [props.translate]
  */
 export default function TextAreaEntry(props) {
   const {
@@ -166,13 +256,15 @@ export default function TextAreaEntry(props) {
     validate,
     onFocus,
     onBlur,
+    onPaste,
     placeholder,
     autoResize,
-    tooltip
+    tooltip,
+    translate
   } = props;
 
-  const globalError = useError(id);
-  const [ localError, setLocalError ] = useState(null);
+  const diagnostics = useDiagnostics(id);
+  const [ localDiagnostic, setLocalDiagnostic ] = useState(null);
 
   let value = getValue(element);
 
@@ -180,33 +272,34 @@ export default function TextAreaEntry(props) {
     if (isFunction(validate)) {
       const newValidationError = validate(value) || null;
 
-      setLocalError(newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
   }, [ value, validate ]);
 
-  const onInput = useCallback((newValue) => {
+  const onInput = useStaticCallback((newValue) => {
     const value = getValue(element);
-    let newValidationError = null;
-
-    if (isFunction(validate)) {
-      newValidationError = validate(newValue) || null;
-    }
 
     if (newValue !== value) {
+      let newValidationError = null;
+
+      if (isFunction(validate)) {
+        newValidationError = validate(newValue) || null;
+      }
+
       setValue(newValue, newValidationError);
+      setLocalDiagnostic(newValidationError);
     }
-
-    setLocalError(newValidationError);
-  }, [ element ]);
+  });
 
 
-  const error = globalError || localError;
+  // most severe wins, externally provided diagnostics win ties
+  const diagnostic = getMostSevere([ ...diagnostics, localDiagnostic ]);
 
   return (
     <div
       class={ classnames(
         'bio-properties-panel-entry',
-        error ? 'has-error' : '')
+        getDiagnosticClass(diagnostic))
       }
       data-entry-id={ id }>
       <TextArea
@@ -217,6 +310,7 @@ export default function TextAreaEntry(props) {
         onInput={ onInput }
         onFocus={ onFocus }
         onBlur={ onBlur }
+        onPaste={ onPaste }
         rows={ rows }
         debounce={ debounce }
         monospace={ monospace }
@@ -224,8 +318,9 @@ export default function TextAreaEntry(props) {
         placeholder={ placeholder }
         autoResize={ autoResize }
         tooltip={ tooltip }
+        translate={ translate }
         element={ element } />
-      { error && <div class="bio-properties-panel-error">{ error }</div> }
+      <DiagnosticMessage diagnostic={ diagnostic } forId={ id } element={ element } />
       <Description forId={ id } element={ element } value={ description } />
     </div>
   );

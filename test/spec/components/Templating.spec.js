@@ -1,3 +1,10 @@
+import { expect } from 'chai';
+
+import {
+  spy as sinonSpy,
+  useFakeTimers
+} from 'sinon';
+
 import { act } from 'preact/test-utils';
 
 import { waitFor } from '@testing-library/dom';
@@ -21,6 +28,7 @@ import {
 
 import {
   DescriptionContext,
+  DiagnosticsContext,
   ErrorsContext,
   EventContext,
   PropertiesPanelContext
@@ -39,7 +47,7 @@ describe('<Templating>', function() {
 
   beforeEach(function() {
     container = TestContainer.get(this);
-    clock = sinon.useFakeTimers();
+    clock = useFakeTimers({ shouldClearNativeTimers: true });
   });
 
   afterEach(function() {
@@ -61,7 +69,7 @@ describe('<Templating>', function() {
     it('should update', async function() {
 
       // given
-      const updateSpy = sinon.spy();
+      const updateSpy = sinonSpy();
 
       const result = createTemplatingEntry({ container, setValue: updateSpy });
 
@@ -156,7 +164,7 @@ describe('<Templating>', function() {
         // given
         const eventBus = new EventBus();
 
-        const onShowSpy = sinon.spy();
+        const onShowSpy = sinonSpy();
 
 
         createTemplatingEntry({ id: 'foo', container, eventBus, onShow: onShowSpy });
@@ -239,7 +247,7 @@ describe('<Templating>', function() {
       });
 
 
-      it('should show local error over global error', async function() {
+      it('should show global error over local error', async function() {
 
         // given
         const errors = {
@@ -267,7 +275,7 @@ describe('<Templating>', function() {
         await waitFor(() => {
           errorField = domQuery('.bio-properties-panel-error', result.container);
           expect(errorField).to.exist;
-          expect(errorField.textContent).not.to.eql('bar');
+          expect(errorField.textContent).to.eql('bar');
         });
       });
 
@@ -395,7 +403,7 @@ describe('<Templating>', function() {
       it('should NOT discard invalid input', async function() {
 
         // given
-        const setValueSpy = sinon.spy();
+        const setValueSpy = sinonSpy();
         const validate = () => 'error';
 
         const result = createTemplatingEntry({ container, validate, setValue: setValueSpy });
@@ -473,6 +481,33 @@ describe('<Templating>', function() {
         // then
         const editorContainer = domQuery('.bio-properties-panel-feelers-editor', result.container);
         expect(editorContainer.classList.contains('disabled')).to.be.true;
+      });
+
+    });
+
+
+    describe('diagnostics', function() {
+
+      it('should restore focus to editor if focused action goes away', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTemplatingEntry({ container, diagnostics, id: 'foo', label: 'foo' });
+
+        domQuery('.bio-properties-panel-diagnostic-action', result.container).focus();
+
+        // when
+        createTemplatingEntry({ container, diagnostics: {}, id: 'foo', label: 'foo' }, result.rerender);
+
+        // then
+        expect(document.activeElement).to.equal(domQuery('.cm-content', result.container));
       });
 
     });
@@ -610,10 +645,15 @@ function createTemplatingEntry(options = {}, renderFn = render) {
     eventBus = new EventBus(),
     onShow = noop,
     errors = {},
+    diagnostics = {}
   } = options;
 
   const errorsContext = {
     errors
+  };
+
+  const diagnosticsContext = {
+    diagnostics
   };
 
   const eventContext = {
@@ -630,26 +670,28 @@ function createTemplatingEntry(options = {}, renderFn = render) {
   };
 
   return renderFn(
-    <ErrorsContext.Provider value={ errorsContext }>
-      <EventContext.Provider value={ eventContext }>
-        <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
-          <DescriptionContext.Provider value={ descriptionContext }>
-            <TemplatingEntry
-              element={ element }
-              id={ id }
-              description={ description }
-              debounce={ debounce }
-              disabled={ disabled }
-              label={ label }
-              getValue={ getValue }
-              setValue={ setValue }
-              tooltipContainer={ container }
-              validate={ validate }
-            />
-          </DescriptionContext.Provider>
-        </PropertiesPanelContext.Provider>
-      </EventContext.Provider>
-    </ErrorsContext.Provider>,
+    <DiagnosticsContext.Provider value={ diagnosticsContext }>
+      <ErrorsContext.Provider value={ errorsContext }>
+        <EventContext.Provider value={ eventContext }>
+          <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
+            <DescriptionContext.Provider value={ descriptionContext }>
+              <TemplatingEntry
+                element={ element }
+                id={ id }
+                description={ description }
+                debounce={ debounce }
+                disabled={ disabled }
+                label={ label }
+                getValue={ getValue }
+                setValue={ setValue }
+                tooltipContainer={ container }
+                validate={ validate }
+              />
+            </DescriptionContext.Provider>
+          </PropertiesPanelContext.Provider>
+        </EventContext.Provider>
+      </ErrorsContext.Provider>
+    </DiagnosticsContext.Provider>,
     {
       container
     }

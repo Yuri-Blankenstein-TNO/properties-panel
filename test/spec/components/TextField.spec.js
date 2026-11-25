@@ -1,8 +1,19 @@
+import { expect } from 'chai';
+
+import {
+  spy as sinonSpy,
+  stub as sinonStub
+} from 'sinon';
+
 import { act } from 'preact/test-utils';
 
 import {
-  render
+  render,
+  fireEvent,
+  findByText
 } from '@testing-library/preact/pure';
+
+import { waitFor } from '@testing-library/preact';
 
 import TestContainer from 'mocha-test-container-support';
 
@@ -10,6 +21,7 @@ import {
   classes as domClasses,
   query as domQuery
 } from 'min-dom';
+import { debounce } from 'min-dash';
 
 import EventBus from 'diagram-js/lib/core/EventBus';
 
@@ -21,12 +33,14 @@ import {
 
 import {
   DescriptionContext,
+  DiagnosticsContext,
   ErrorsContext,
   EventContext,
   PropertiesPanelContext
 } from 'src/context';
 
-import TextField, { isEdited } from 'src/components/entries/TextField';
+import TextField, { isEdited } from '../../../src/components/entries/TextField';
+
 
 insertCoreStyles();
 
@@ -65,7 +79,7 @@ describe('<TextField>', function() {
   it('should update', function() {
 
     // given
-    const updateSpy = sinon.spy();
+    const updateSpy = sinonSpy();
 
     const result = createTextField({ container, setValue: updateSpy });
 
@@ -95,10 +109,11 @@ describe('<TextField>', function() {
     expect(newInput).to.not.eql(input);
   });
 
+
   it('should trim whitespace on blur', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
 
     const result = createTextField({
       container,
@@ -108,21 +123,161 @@ describe('<TextField>', function() {
     const input = domQuery('.bio-properties-panel-input', result.container);
 
     // when
-    input.focus();
-    changeInput(input, '  foo  ');
-    input.blur();
+    await act(async () => {
+      input.focus();
+      changeInput(input, '  foo  ');
+      input.blur();
+    });
 
     // then
     expect(setValueSpy).to.have.been.calledTwice;
     expect(setValueSpy).to.have.been.calledWith('foo');
+    expect(input.value).to.equal('foo');
+  });
+
+
+  it('should set undefined on blur when trimmed value is empty', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextField({
+      container,
+      getValue: () => '    ',
+      setValue: setValueSpy,
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    input.blur();
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith(undefined);
+  });
+
+
+  it('should immediately commit value once on blur (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextField({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 0)
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    await act(async () => {
+      input.focus();
+      changeInput(input, 'hello   ');
+      input.blur();
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1));
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith('hello');
+    expect(input.value).to.equal('hello');
+  });
+
+
+  it('should immediately commit value on keyboard shortcut (cmd+z) (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextField({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 50) // 50ms debounce delay
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'test value');
+    fireEvent.keyDown(input, {
+      key: 'z',
+      metaKey: true, // Cmd key on Mac
+      ctrlKey: false,
+      altKey: false
+    });
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith('test value');
+  });
+
+
+  it('should immediately commit value on keyboard shortcut (ctrl+z) (debounce)', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextField({
+      container,
+      getValue: () => '',
+      setValue: setValueSpy,
+      debounce: fn => debounce(fn, 50) // 50ms debounce delay
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'test value ctrl');
+    fireEvent.keyDown(input, {
+      key: 'z',
+      metaKey: false,
+      ctrlKey: true,
+      altKey: false
+    });
+
+    // then
+    expect(setValueSpy).to.have.been.calledOnceWith('test value ctrl');
+  });
+
+
+  it('should NOT throw when debounce does not provide flush', async function() {
+
+    // given
+    const result = createTextField({
+      container,
+      getValue: () => '',
+      setValue: noop,
+      debounce: fn => fn // no .flush or .cancel on returned function
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    input.focus();
+    changeInput(input, 'some value');
+
+    // then - should not throw
+    expect(() => {
+      fireEvent.keyDown(input, {
+        key: 'z',
+        metaKey: true,
+        ctrlKey: false,
+        altKey: false
+      });
+    }).not.to.throw();
   });
 
 
   it('should call onBlur if provided', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
-    const onBlurSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
+    const onBlurSpy = sinonSpy();
 
     const result = createTextField({
       container,
@@ -142,13 +297,42 @@ describe('<TextField>', function() {
   });
 
 
-  it('should not call setValue if the value is same', async function() {
+  it('should not call setValue or validate if the value is same', async function() {
 
     // given
-    const setValueSpy = sinon.spy();
+    const setValueSpy = sinonSpy();
+    const validateSpy = sinonSpy();
 
     const result = createTextField({
       container,
+      getValue: () => 'a value',
+      setValue: setValueSpy,
+      validate: validateSpy
+    });
+
+    const input = domQuery('.bio-properties-panel-input', result.container);
+
+    // when
+    validateSpy.resetHistory();
+    input.focus();
+    changeInput(input, 'a value');
+    input.blur();
+
+    // then
+    expect(setValueSpy).to.not.have.been.called;
+    expect(validateSpy).to.not.have.been.called;
+
+  });
+
+
+  it('should not call setValue if the value stays undefined or empty', async function() {
+
+    // given
+    const setValueSpy = sinonSpy();
+
+    const result = createTextField({
+      container,
+      getValue: () => undefined,
       setValue: setValueSpy
     });
 
@@ -162,6 +346,70 @@ describe('<TextField>', function() {
     // then
     expect(setValueSpy).to.not.have.been.called;
 
+  });
+
+
+  describe('rerendering', function() {
+
+    it('should call new setValue if passed', function() {
+
+      // given
+      const updateSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextField({ container, setValue: updateSpies[0] });
+
+      // when
+      createTextField({ container, setValue: updateSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      changeInput(input, 'foo');
+
+      // then
+      expect(updateSpies[0]).not.to.have.been.called;
+      expect(updateSpies[1]).to.have.been.calledWith('foo');
+    });
+
+
+    it('should call new getValue if passed', function() {
+
+      // given
+      const element = undefined;
+      const getValueSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextField({ container, getValue: getValueSpies[0] });
+
+      // when
+      createTextField({ container, getValue: getValueSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      getValueSpies[0].resetHistory();
+
+      // and when
+      changeInput(input, 'foo');
+
+      // then
+      expect(getValueSpies[0]).not.to.have.been.called;
+      expect(getValueSpies[1]).to.have.been.calledWith(element);
+    });
+
+
+    it('should call new validate if passed', function() {
+
+      // given
+      const validateSpies = [ sinonSpy(), sinonSpy() ];
+
+      const firstRender = createTextField({ container, validate: validateSpies[0] });
+
+      // when
+      createTextField({ container, validate: validateSpies[1] }, firstRender.rerender);
+      const input = domQuery('.bio-properties-panel-input', firstRender.container);
+      validateSpies[0].resetHistory();
+
+      // and when
+      changeInput(input, 'foo');
+
+      // then
+      expect(validateSpies[0]).not.to.have.been.called;
+      expect(validateSpies[1]).to.have.been.calledWith('foo');
+    });
   });
 
 
@@ -217,6 +465,124 @@ describe('<TextField>', function() {
   });
 
 
+  describe('paste behavior', function() {
+
+    it('should trim pasted content when field is empty', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextField({
+        container,
+        setValue: setValueSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.dispatchEvent(createPasteEvent('  trimmed content  '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('trimmed content');
+    });
+
+
+    it('should trim pasted content when all text is selected', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextField({
+        container,
+        getValue: () => 'existing text',
+        setValue: setValueSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      input.focus();
+      input.setSelectionRange(0, input.value.length);
+
+      // when
+      input.dispatchEvent(createPasteEvent('  new trimmed content  '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith('new trimmed content');
+    });
+
+
+    it('should allow default paste behavior when cursor is positioned in text', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+      const onPasteSpy = sinonSpy();
+
+      const result = createTextField({
+        container,
+        getValue: () => 'existing text',
+        setValue: setValueSpy,
+        onPaste: onPasteSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      input.focus();
+      input.setSelectionRange(4, 4);
+
+      // when
+      input.dispatchEvent(createPasteEvent('  content  '));
+
+      // then
+      expect(onPasteSpy).to.have.been.called;
+    });
+
+
+    it('should call onPaste callback when provided', function() {
+
+      // given
+      const onPasteSpy = sinonSpy();
+
+      const result = createTextField({
+        container,
+        onPaste: onPasteSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      // when
+      input.dispatchEvent(createPasteEvent('test content'));
+
+      // then
+      expect(onPasteSpy).to.have.been.called;
+    });
+
+
+    it('should handle empty paste data', function() {
+
+      // given
+      const setValueSpy = sinonSpy();
+
+      const result = createTextField({
+        container,
+        getValue: () => 'initial value',
+        setValue: setValueSpy
+      });
+
+      const input = domQuery('.bio-properties-panel-input', result.container);
+
+      input.focus();
+      input.setSelectionRange(0, input.value.length);
+
+      // when
+      input.dispatchEvent(createPasteEvent('   '));
+
+      // then
+      expect(setValueSpy).to.have.been.calledWith(undefined);
+    });
+
+  });
+
+
   describe('events', function() {
 
     it('should show entry', function() {
@@ -224,7 +590,7 @@ describe('<TextField>', function() {
       // given
       const eventBus = new EventBus();
 
-      const onShowSpy = sinon.spy();
+      const onShowSpy = sinonSpy();
 
       createTextField({
         container,
@@ -257,6 +623,509 @@ describe('<TextField>', function() {
       // then
       expect(isValid(domQuery('.bio-properties-panel-entry', result.container))).to.be.false;
       expect(domQuery('.bio-properties-panel-error', result.container)).to.exist;
+    });
+
+
+    it('should NOT get error action', function() {
+
+      // given
+      const errors = {
+        foo: {
+          message: 'bar',
+          action: {
+            label: 'Fix',
+            onClick: noop
+          }
+        }
+      };
+
+      // when
+      const result = createTextField({ container, errors, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-error-action', result.container)).to.not.exist;
+    });
+
+  });
+
+
+  describe('diagnostics', function() {
+
+    it('should get error', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'error', message: 'bar' } ]
+      };
+
+      const result = createTextField({ container, diagnostics, id: 'foo' });
+
+      // then
+      expect(domClasses(domQuery('.bio-properties-panel-entry', result.container)).has('has-error')).to.be.true;
+      expect(domQuery('.bio-properties-panel-error', result.container).innerText).to.eql('bar');
+      expect(domQuery('.bio-properties-panel-diagnostic-icon', result.container)).to.not.exist;
+    });
+
+
+    it('should get warning', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'warning', message: 'bar' } ]
+      };
+
+      const result = createTextField({ container, diagnostics, id: 'foo' });
+
+      // then
+      expect(domClasses(domQuery('.bio-properties-panel-entry', result.container)).has('has-warning')).to.be.true;
+      expect(domQuery('.bio-properties-panel-warning', result.container).innerText).to.eql('bar');
+      expect(domQuery('.bio-properties-panel-diagnostic-icon', result.container)).to.not.exist;
+    });
+
+
+    it('should get info', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'info', message: 'bar' } ]
+      };
+
+      const result = createTextField({ container, diagnostics, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-info', result.container).innerText).to.eql('bar');
+      expect(domQuery('.bio-properties-panel-diagnostic-icon', result.container)).to.exist;
+    });
+
+
+    describe('empty message', function() {
+
+      it('should render action without icon for info', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'info',
+            message: '',
+            action: { label: 'Fix', tooltip: 'Fix the value', onClick: noop }
+          } ]
+        };
+
+        // when
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // then
+        expect(domQuery('.bio-properties-panel-info', result.container)).to.exist;
+        expect(domQuery('.bio-properties-panel-diagnostic-action', result.container).innerText).to.eql('Fix');
+        expect(domQuery('.bio-properties-panel-diagnostic-icon', result.container)).to.not.exist;
+        expect(domQuery('.bio-properties-panel-diagnostic-message', result.container)).to.not.exist;
+      });
+
+
+      [ 'warning', 'error' ].forEach(function(severity) {
+
+        it(`should render action without message for ${ severity }`, function() {
+
+          // given
+          const diagnostics = {
+            foo: [ {
+              severity,
+              message: '',
+              action: { label: 'Fix', onClick: noop }
+            } ]
+          };
+
+          // when
+          const result = createTextField({ container, diagnostics, id: 'foo' });
+
+          // then
+          expect(domQuery('.bio-properties-panel-diagnostic-action', result.container)).to.exist;
+          expect(domQuery('.bio-properties-panel-diagnostic-message', result.container)).to.not.exist;
+        });
+
+      });
+
+
+      it('should still mark entry', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ { severity: 'warning', message: '', action: { label: 'Fix', onClick: noop } } ]
+        };
+
+        // when
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // then
+        expect(domClasses(domQuery('.bio-properties-panel-entry', result.container)).has('has-warning')).to.be.true;
+      });
+
+
+      it('should keep icon and message for info with message', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'info',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        // when
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // then
+        expect(domQuery('.bio-properties-panel-diagnostic-icon', result.container)).to.exist;
+        expect(domQuery('.bio-properties-panel-diagnostic-message', result.container).innerText).to.eql('bar');
+      });
+
+    });
+
+
+    it('should NOT mark entry for info', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'info', message: 'bar' } ]
+      };
+
+      // when
+      const result = createTextField({ container, diagnostics, id: 'foo' });
+
+      // then
+      const entry = domQuery('.bio-properties-panel-entry', result.container);
+
+      expect(domClasses(entry).has('has-error')).to.be.false;
+      expect(domClasses(entry).has('has-warning')).to.be.false;
+    });
+
+
+    it('should show most severe diagnostic', function() {
+
+      // given
+      const diagnostics = {
+        foo: [
+          { severity: 'info', message: 'info' },
+          { severity: 'error', message: 'error' },
+          { severity: 'warning', message: 'warning' }
+        ]
+      };
+
+      const result = createTextField({ container, diagnostics, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-error', result.container).innerText).to.eql('error');
+      expect(domQuery('.bio-properties-panel-warning', result.container)).to.not.exist;
+    });
+
+
+    it('should show diagnostic over local error of same severity', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'error', message: 'bar' } ]
+      };
+
+      const validate = () => 'local';
+
+      const result = createTextField({ container, diagnostics, validate, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-error', result.container).innerText).to.eql('bar');
+    });
+
+
+    it('should show more severe local error over diagnostic', function() {
+
+      // given
+      const diagnostics = {
+        foo: [ { severity: 'warning', message: 'bar' } ]
+      };
+
+      const validate = () => 'local';
+
+      const result = createTextField({ container, diagnostics, validate, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-error', result.container).innerText).to.eql('local');
+    });
+
+
+    it('should get local warning through validate', function() {
+
+      // given
+      const validate = () => ({ severity: 'warning', message: 'bar' });
+
+      const result = createTextField({ container, validate, id: 'foo' });
+
+      // then
+      expect(domQuery('.bio-properties-panel-warning', result.container).innerText).to.eql('bar');
+    });
+
+
+    describe('action', function() {
+
+      it('should render', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // when
+        const action = domQuery('.bio-properties-panel-error-action', result.container);
+
+        // then
+        expect(action.innerText).to.eql('Fix');
+      });
+
+
+      it('should keep deprecated error classnames alongside the diagnostic ones', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // when
+        const message = domQuery('.bio-properties-panel-diagnostic-message', result.container);
+        const action = domQuery('.bio-properties-panel-diagnostic-action', result.container);
+
+        // then
+        expect(message.classList.contains('bio-properties-panel-error-message')).to.be.true;
+        expect(action.classList.contains('bio-properties-panel-error-action')).to.be.true;
+      });
+
+
+      it('should not add an extra tab stop around the action button', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', tooltip: 'Fix the value', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // when
+        const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+        // then
+        expect(wrapper.getAttribute('tabIndex')).to.be.null;
+      });
+
+
+      it('should set accessible name of the action button', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', ariaLabel: 'Fix foo', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // then
+        const action = domQuery('.bio-properties-panel-diagnostic-action', result.container);
+
+        expect(action.getAttribute('aria-label')).to.eql('Fix foo');
+      });
+
+
+      it('should restore focus to the field when focused action goes away', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        domQuery('.bio-properties-panel-diagnostic-action', result.container).focus();
+
+        // when
+        createTextField({ container, diagnostics: {}, id: 'foo' }, result.rerender);
+
+        // then
+        expect(document.activeElement).to.equal(domQuery('input', result.container));
+      });
+
+
+      it('should label the tooltip by the action button it belongs to', async function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', tooltip: 'Fix the value', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        const action = domQuery('.bio-properties-panel-error-action', result.container);
+        const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+        // when
+        fireEvent.mouseEnter(wrapper);
+
+        // then
+        await waitFor(() => {
+          const tooltip = domQuery('.bio-properties-panel-tooltip', result.container);
+
+          expect(tooltip).to.exist;
+          expect(tooltip.getAttribute('aria-labelledby')).to.equal(action.id);
+        });
+      });
+
+
+      it('should describe the action button by its tooltip', async function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', tooltip: 'Fix the value', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        const action = domQuery('.bio-properties-panel-error-action', result.container);
+        const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+        // when
+        fireEvent.mouseEnter(wrapper);
+
+        // then
+        await waitFor(() => {
+          const tooltip = domQuery('.bio-properties-panel-tooltip', result.container);
+
+          expect(tooltip).to.exist;
+          expect(action.getAttribute('aria-describedby')).to.equal(tooltip.id);
+        });
+      });
+
+
+      it('should not describe the action button when it has no tooltip', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // when
+        const action = domQuery('.bio-properties-panel-error-action', result.container);
+
+        // then
+        expect(action.hasAttribute('aria-describedby')).to.be.false;
+      });
+
+
+      it('should render for warning', function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'warning',
+            message: 'bar',
+            action: { label: 'Fix', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        // when
+        const warning = domQuery('.bio-properties-panel-warning', result.container);
+
+        // then
+        expect(domQuery('.bio-properties-panel-error-action', warning)).to.exist;
+      });
+
+
+      it('should show tooltip on hover', async function() {
+
+        // given
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', tooltip: 'Fix the value', onClick: noop }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        const wrapper = domQuery('.bio-properties-panel-tooltip-wrapper', result.container);
+
+        // when
+        fireEvent.mouseEnter(wrapper);
+
+        // then
+        await waitFor(() => {
+          const tooltip = domQuery('.bio-properties-panel-tooltip-content', result.container);
+
+          expect(tooltip).to.exist;
+          expect(tooltip.textContent).to.eql('Fix the value');
+        });
+      });
+
+
+      it('should trigger on click', function() {
+
+        // given
+        const onClickSpy = sinonSpy();
+
+        const diagnostics = {
+          foo: [ {
+            severity: 'error',
+            message: 'bar',
+            action: { label: 'Fix', onClick: onClickSpy }
+          } ]
+        };
+
+        const result = createTextField({ container, diagnostics, id: 'foo' });
+
+        const action = domQuery('.bio-properties-panel-error-action', result.container);
+
+        // when
+        fireEvent.click(action);
+
+        // then
+        expect(onClickSpy).to.have.been.called;
+      });
+
     });
 
   });
@@ -343,7 +1212,7 @@ describe('<TextField>', function() {
     it('should NOT discard invalid input', function() {
 
       // given
-      const setValueSpy = sinon.spy();
+      const setValueSpy = sinonSpy();
       const validate = () => 'error';
 
       const result = createTextField({ container, validate, setValue: setValueSpy });
@@ -507,6 +1376,22 @@ describe('<TextField>', function() {
   });
 
 
+  describe('tooltip', function() {
+
+    it('should render tooltip', async function() {
+
+      // given
+      const result = createTextField({ container, tooltip: 'tooltip-test' });
+
+      // when
+      fireEvent.mouseEnter(domQuery('.bio-properties-panel-tooltip-wrapper', result.container));
+
+      // then
+      await findByText(result.container, 'tooltip-test');
+    });
+  });
+
+
   describe('a11y', function() {
 
     it('should have no violations', async function() {
@@ -523,12 +1408,53 @@ describe('<TextField>', function() {
       await expectNoViolations(node);
     });
 
+
+    it('should have no violations with diagnostic action', async function() {
+
+      // given
+      this.timeout(5000);
+
+      const diagnostics = {
+        foo: [ {
+          severity: 'warning',
+          message: 'bar',
+          action: {
+            label: 'Fix',
+            tooltip: 'Fix the value',
+            onClick: noop
+          }
+        } ]
+      };
+
+      const { container: node } = createTextField({
+        container,
+        diagnostics,
+        id: 'foo',
+        label: 'foo'
+      });
+
+      // then
+      await expectNoViolations(node);
+    });
+
   });
 
 });
 
 
 // helpers ////////////////////
+
+function createPasteEvent(text) {
+  const pasteEvent = new ClipboardEvent('paste', {
+    bubbles: true,
+    cancelable: true,
+    clipboardData: new DataTransfer()
+  });
+
+  sinonStub(pasteEvent.clipboardData, 'getData').withArgs('text').returns(text);
+
+  return pasteEvent;
+}
 
 function createTextField(options = {}, renderFn = render) {
   const {
@@ -548,11 +1474,17 @@ function createTextField(options = {}, renderFn = render) {
     eventBus = new EventBus(),
     onShow = noop,
     errors = {},
+    diagnostics = {},
+    tooltip,
     ...restProps
   } = options;
 
   const errorsContext = {
     errors
+  };
+
+  const diagnosticsContext = {
+    diagnostics
   };
 
   const eventContext = {
@@ -569,26 +1501,30 @@ function createTextField(options = {}, renderFn = render) {
   };
 
   return renderFn(
-    <ErrorsContext.Provider value={ errorsContext }>
-      <EventContext.Provider value={ eventContext }>
-        <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
-          <DescriptionContext.Provider value={ descriptionContext }>
-            <TextField
-              { ...restProps }
-              element={ element }
-              id={ id }
-              label={ label }
-              description={ description }
-              disabled={ disabled }
-              getValue={ getValue }
-              setValue={ setValue }
-              onBlur={ onBlur }
-              debounce={ debounce }
-              validate={ validate } />
-          </DescriptionContext.Provider>
-        </PropertiesPanelContext.Provider>
-      </EventContext.Provider>
-    </ErrorsContext.Provider>,
+    <DiagnosticsContext.Provider value={ diagnosticsContext }>
+      <ErrorsContext.Provider value={ errorsContext }>
+        <EventContext.Provider value={ eventContext }>
+          <PropertiesPanelContext.Provider value={ propertiesPanelContext }>
+            <DescriptionContext.Provider value={ descriptionContext }>
+              <TextField
+                { ...restProps }
+                element={ element }
+                id={ id }
+                label={ label }
+                description={ description }
+                disabled={ disabled }
+                getValue={ getValue }
+                setValue={ setValue }
+                onBlur={ onBlur }
+                debounce={ debounce }
+                validate={ validate }
+                tooltip={ tooltip }
+              />
+            </DescriptionContext.Provider>
+          </PropertiesPanelContext.Provider>
+        </EventContext.Provider>
+      </ErrorsContext.Provider>
+    </DiagnosticsContext.Provider>,
     {
       container
     }

@@ -8,7 +8,7 @@ import { EditorView, lineNumbers } from '@codemirror/view';
 
 import { useStaticCallback } from '../../../hooks';
 
-import { PopupIcon } from '../../icons';
+import { OpenPopupIcon } from '../../icons';
 
 const noop = () => {};
 
@@ -180,7 +180,7 @@ const CodeEditor = forwardRef((props, ref) => {
         type="button"
         title="Open pop-up editor"
         class="bio-properties-panel-open-feel-popup"
-        onClick={ () => onPopupOpen() }><PopupIcon /></button>
+        onClick={ () => onPopupOpen() }><OpenPopupIcon /></button>
     )}
   </div>;
 });

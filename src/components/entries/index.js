@@ -1,6 +1,9 @@
 export { default as CheckboxEntry, isEdited as isCheckboxEntryEdited } from './Checkbox';
+export { default as CheckboxGroup } from './CheckboxGroup';
+export { default as JsonEditorEntry, isEdited as isJsonEditorEntryEdited } from './JsonEditor';
 export { default as CollapsibleEntry } from './Collapsible';
 export { default as DescriptionEntry } from './Description';
+export { default as DiagnosticMessage } from './Diagnostic';
 export {
   default as FeelEntry,
   FeelCheckboxEntry,

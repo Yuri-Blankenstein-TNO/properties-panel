@@ -8,6 +8,8 @@ import {
 import classNames from 'classnames';
 import Tooltip from './Tooltip';
 
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
 export function ToggleSwitch(props) {
   const {
     id,
@@ -105,6 +107,7 @@ export default function ToggleSwitchEntry(props) {
   return (
     <div class="bio-properties-panel-entry bio-properties-panel-toggle-switch-entry" data-entry-id={ id }>
       <ToggleSwitch
+        key={ element }
         id={ id }
         label={ label }
         value={ value }

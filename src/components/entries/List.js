@@ -1,6 +1,7 @@
 import {
   useEffect,
-  useState
+  useState,
+  useRef
 } from 'preact/hooks';
 
 import {
@@ -11,8 +12,11 @@ import { isFunction } from 'min-dash';
 
 import {
   useKeyFactory,
-  usePrevious
+  usePrevious,
+  useStickyIntersectionObserver
 } from '../../hooks';
+
+import translateFallback from '../util/translateFallback';
 
 import classnames from 'classnames';
 
@@ -21,6 +25,8 @@ import {
   CreateIcon,
   DeleteIcon
 } from '../icons';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
 
 /**
  * Entry for handling lists represented as nested entries.
@@ -31,11 +37,12 @@ import {
  * @param {*} props.element
  * @param {Function} props.onAdd
  * @param {import('preact').Component} props.component
- * @param {string} [props.label='<empty>']
+ * @param {string|import('preact').ComponentChildren} [props.label='<empty>']
  * @param {Function} [props.onRemove]
  * @param {Item[]} [props.items]
  * @param {boolean} [props.open]
  * @param {string|boolean} [props.autoFocusEntry] either a custom selector string or true to focus the first input
+ * @param {Function} [props.translate]
  * @returns
  */
 export default function List(props) {
@@ -49,10 +56,13 @@ export default function List(props) {
     onAdd,
     onRemove,
     autoFocusEntry,
+    translate = translateFallback,
     ...restProps
   } = props;
 
+  const entryRef = useRef(null);
   const [ open, setOpen ] = useState(!!shouldOpen);
+  const [ sticky, setSticky ] = useState(false);
 
   const hasItems = !!items.length;
   const toggleOpen = () => hasItems && setOpen(!open);
@@ -78,6 +88,9 @@ export default function List(props) {
     }
   }
 
+  // set css class when entry is sticky to top
+  useStickyIntersectionObserver(entryRef, 'div.bio-properties-panel-scroll-container', setSticky);
+
   return (
     <div
       data-entry-id={ id }
@@ -86,10 +99,15 @@ export default function List(props) {
         'bio-properties-panel-list-entry',
         hasItems ? '' : 'empty',
         open ? 'open' : ''
-      ) }>
-      <div class="bio-properties-panel-list-entry-header" onClick={ toggleOpen }>
+      ) }
+      ref={ entryRef }>
+      <div
+        class={ classnames(
+          'bio-properties-panel-list-entry-header',
+          (sticky && open) ? 'sticky' : ''
+        ) }
+        onClick={ toggleOpen }>
         <div
-          title={ label }
           class={ classnames(
             'bio-properties-panel-list-entry-header-title',
             open && 'open'
@@ -101,14 +119,14 @@ export default function List(props) {
         >
           <button
             type="button"
-            title="Create new list item"
+            title={ translate('Create new list item') }
             onClick={ addItem }
             class="bio-properties-panel-add-entry"
           >
             <CreateIcon />
             {
               !hasItems ? (
-                <span class="bio-properties-panel-add-entry-label">Create</span>
+                <span class="bio-properties-panel-add-entry-label">{ translate('Create') }</span>
               )
                 : null
             }
@@ -116,7 +134,7 @@ export default function List(props) {
           {
             hasItems && (
               <div
-                title={ `List contains ${items.length} item${items.length != 1 ? 's' : ''}` }
+                title={ translate(`List contains {numOfItems} item${items.length != 1 ? 's' : ''}`, { numOfItems: items.length }) }
                 class="bio-properties-panel-list-badge"
               >
                 { items.length }
@@ -127,7 +145,7 @@ export default function List(props) {
             hasItems && (
               <button
                 type="button"
-                title="Toggle list item"
+                title={ translate('Toggle list item') }
                 class="bio-properties-panel-arrow"
               >
                 <ArrowIcon class={ open ? 'bio-properties-panel-arrow-down' : 'bio-properties-panel-arrow-right' } />
@@ -148,6 +166,7 @@ export default function List(props) {
             newItems={ newItems }
             onRemove={ onRemove }
             open={ open }
+            translate={ translate }
           />
         )
       }
@@ -165,6 +184,7 @@ function ItemsList(props) {
     newItems,
     onRemove,
     open,
+    translate,
     ...restProps
   } = props;
 
@@ -217,7 +237,7 @@ function ItemsList(props) {
             onRemove && (
               <button
                 type="button"
-                title="Delete item"
+                title={ translate('Delete item') }
                 class="bio-properties-panel-remove-entry bio-properties-panel-remove-list-entry"
                 onClick={ () => onRemove && onRemove(item) }
               ><DeleteIcon /></button>

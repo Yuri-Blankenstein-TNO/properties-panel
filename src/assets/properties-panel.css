@@ -1,133 +1,200 @@
 /**
- * Theming
+ * Semantic tokens, copied from `@bpmn-io/theme` to style the components
+ * according to this theme.
+ *
+ * Names and values of the tokens should stay intact with the `@bpmn-io/theme`
+ * source of truth, to ensure matching styles and allow overrides with an
+ * alternative theme.
  */
- .bio-properties-panel,
- .djs-parent {
-  --color-grey-225-10-15: hsl(225, 10%, 15%);
-  --color-grey-225-10-35: hsl(225, 10%, 35%);
-  --color-grey-225-10-55: hsl(225, 10%, 55%);
-  --color-grey-225-10-75: hsl(225, 10%, 75%);
-  --color-grey-225-10-80: hsl(225, 10%, 80%);
-  --color-grey-225-10-85: hsl(225, 10%, 85%);
-  --color-grey-225-10-90: hsl(225, 10%, 90%);
-  --color-grey-225-10-95: hsl(225, 10%, 95%);
-  --color-grey-225-10-97: hsl(225, 10%, 97%);
-  --color-grey-0-0-22: hsl(0, 0%, 22%);
-
-  --color-blue-205-100-35: hsl(205, 100%, 35%);
-  --color-blue-205-100-40: hsl(205, 100%, 40%);
-  --color-green-150-86-44: hsl(150, 86%, 44%);
-  --color-blue-205-100-45: hsl(205, 100%, 45%);
-  --color-blue-205-100-50: hsl(205, 100%, 50%);
-  --color-blue-219-99-53: hsl(219, 99%, 53%);
-  --color-blue-218-100-74: hsl(218, 100%, 74%);
-  --color-blue-205-100-85: hsl(205, 100%, 85%);
-  --color-blue-205-100-95: hsl(205, 100%, 95%);
-
-  --color-red-360-100-40: hsl(360, 100%, 40%);
-  --color-red-360-100-45: hsl(360, 100%, 45%);
-  --color-red-360-100-92: hsl(360, 100%, 92%);
-  --color-red-360-100-97: hsl(360, 100%, 97%);
-  --color-white: white;
-  --color-black: black;
-  --color-transparent: transparent;
-
+.bio-theme-parent {
+  --bio-surface: hsl(0, 0%, 100%);
+  --bio-surface-overlay: hsl(0, 0%, 100%);
+  --bio-surface-subtle: hsl(225, 10%, 97%);
+  --bio-surface-medium: hsl(225, 10%, 95%);
+  --bio-surface-strong: hsl(225, 10%, 90%);
+  --bio-surface-inverted: hsl(0, 0%, 22%);
+  --bio-text: hsl(225, 10%, 15%);
+  --bio-text-subtle: hsl(225, 10%, 35%);
+  --bio-text-subtlest: hsl(225, 10%, 55%);
+  --bio-text-on-primary: hsl(0, 0%, 100%);
+  --bio-text-on-inverted: hsl(0, 0%, 100%);
+  --bio-border: hsl(225, 10%, 75%);
+  --bio-border-subtle: hsl(225, 10%, 85%);
+  --bio-border-disabled: hsl(225, 10%, 90%);
+  --bio-border-input: hsl(225, 10%, 75%);
+  --bio-primary: hsl(205, 100%, 40%);
+  --bio-primary-hover: hsl(205, 100%, 35%);
+  --bio-primary-surface: hsl(205, 100%, 95%);
+  --bio-primary-surface-strong: hsl(205, 100%, 85%);
+  --bio-neutral: hsl(225, 10%, 35%);
+  --bio-danger: hsl(360, 100%, 45%);
+  --bio-danger-hover: hsl(360, 100%, 40%);
+  --bio-danger-surface: hsl(360, 100%, 92%);
+  --bio-danger-surface-subtle: hsl(360, 100%, 97%);
+  --bio-warning: hsl(35, 84%, 62%);
+  --bio-warning-hover: hsl(35, 84%, 57%);
+  --bio-warning-text: hsl(39, 100%, 33%);
+  --bio-warning-surface: hsl(38, 100%, 96%);
+  --bio-info: hsl(205, 100%, 40%);
+  --bio-info-marker: var(--bio-info);
+  --bio-info-on-inverted: hsl(218, 100%, 74%);
+  --bio-focus: hsl(205, 100%, 40%);
+  --bio-focus-ring: hsla(205, 100%, 40%, 0.35);
+  --bio-focus-ring-danger: hsla(360, 100%, 45%, 0.35);
+  --bio-focus-ring-warning: hsla(35, 84%, 62%, 0.35);
+  --bio-shadow: hsla(0, 0%, 0%, 30%);
+  --bio-shadow-subtle: hsla(0, 0%, 0%, 10%);
+  --bio-radius-sm: 2px;
+  --bio-radius-lg: 4px;
 }
 
 .bio-properties-panel {
-  --text-base-color: var(--color-grey-225-10-15);
-  --text-error-color: var(--color-red-360-100-45);
-  --link-color: var(--color-blue-205-100-50);
+  --text-base-color: var(--bio-text);
+  --text-error-color: var(--bio-danger);
+  --text-warning-color: var(--bio-warning-text);
 
-  --description-color: var(--color-grey-225-10-35);
-  --description-code-background-color: var(--color-grey-225-10-97);
-  --description-code-border-color: var(--color-grey-225-10-85);
-  --description-list-item-color: var(--color-grey-225-10-35);
+  --diagnostic-action-border-radius: 11px;
+  --diagnostic-icon-color: var(--bio-info-marker);
 
-  --placeholder-color: var(--color-grey-225-10-35);
-  --placeholder-background-color: var(--color-grey-225-10-95);
+  --accent-color: var(--bio-primary);
+  --accent-hover-color: var(--bio-primary-hover);
 
-  --header-background-color: var(--color-grey-225-10-95);
-  --header-icon-fill-color: var(--color-grey-225-10-15);
-  --header-bottom-border-color: var(--color-grey-225-10-75);
+  --link-color: var(--bio-info);
 
-  --group-background-color: var(--color-white);
-  --group-bottom-border-color: var(--color-grey-225-10-75);
+  --description-color: var(--bio-text-subtle);
+  --description-code-background-color: var(--bio-surface-subtle);
+  --description-code-border-color: var(--bio-border-subtle);
+  --description-list-item-color: var(--bio-text-subtle);
 
-  --sticky-group-background-color: var(--color-grey-225-10-95);
-  --sticky-group-bottom-border-color: var(--color-grey-225-10-75);
+  --tooltip-underline-color: var(--bio-text-subtlest);
 
-  --add-entry-fill-color: var(--color-grey-225-10-35);
-  --add-entry-hover-fill-color: var(--color-white);
-  --add-entry-hover-background-color: var(--color-blue-205-100-50);
-  --add-entry-label-color: var(--color-white);
+  --placeholder-color: var(--bio-text-subtle);
+  --placeholder-background-color: var(--bio-surface-medium);
 
-  --remove-entry-fill-color: var(--color-red-360-100-45);
-  --remove-entry-hover-background-color: var(--color-red-360-100-92);
+  --header-background-color: var(--bio-surface-medium);
+  --header-icon-fill-color: var(--bio-text);
+  --header-bottom-border-color: var(--bio-border);
 
-  --arrow-fill-color: var(--color-grey-225-10-35);
-  --arrow-hover-background-color: var(--color-grey-225-10-95);
+  --group-background-color: var(--bio-surface);
+  --group-bottom-border-color: var(--bio-border);
 
-  --dot-color: var(--color-grey-225-10-35);
-  --dot-color-error: var(--color-red-360-100-45);
+  --sticky-group-background-color: var(--bio-surface-medium);
+  --sticky-list-entry-background-color: var(--bio-surface);
+  --sticky-group-bottom-border-color: var(--bio-border);
 
-  --list-badge-color: var(--color-white);
-  --list-badge-background-color: var(--color-grey-225-10-35);
+  --add-entry-fill-color: var(--bio-text-subtle);
+  --add-entry-hover-fill-color: var(--bio-text-on-primary);
+  --add-entry-hover-background-color: var(--bio-primary);
+  --add-entry-label-color: var(--bio-text-on-primary);
 
-  --input-background-color: var(--color-grey-225-10-97);
-  --input-border-color: var(--color-grey-225-10-75);
+  --remove-entry-fill-color: var(--bio-danger);
+  --remove-entry-hover-background-color: var(--bio-danger-surface);
 
-  --input-focus-background-color: var(--color-blue-205-100-95);
-  --input-focus-border-color: var(--color-blue-205-100-50);
-  --focus-outline-color: var(--color-blue-205-100-40);
+  --arrow-fill-color: var(--bio-text-subtle);
+  --arrow-hover-background-color: var(--bio-surface-medium);
 
-  --input-error-background-color: var(--color-red-360-100-97);
-  --input-error-border-color: var(--color-red-360-100-45);
-  --input-error-focus-border-color: var(--color-red-360-100-45);
+  --warning-badge-background-color: var(--bio-warning);
+  --warning-badge-color: var(--bio-text);
+  --warning-badge-hover-background-color: var(--bio-warning-hover);
+  --error-badge-background-color: var(--bio-danger);
+  --error-badge-color: var(--bio-text-on-primary);
+  --error-badge-hover-background-color: var(--bio-danger-hover);
 
-  --input-disabled-color: var(--color-grey-225-10-55);
-  --input-disabled-background-color: var(--color-grey-225-10-97);
-  --input-disabled-border-color: var(--color-grey-225-10-90);
+  --accent-badge-background-color: var(--accent-color);
+  --accent-badge-color: var(--bio-text-on-primary);
+  --accent-badge-fill-color: var(--bio-text-on-primary);
+  --accent-badge-hover-background-color: var(--accent-hover-color);
 
-  --toggle-switch-on-background-color: var(--color-blue-205-100-50);
-  --toggle-switch-off-background-color: var(--color-grey-225-10-75);
-  --toggle-switch-switcher-background-color: var(--color-white);
+  --dot-color: var(--bio-neutral);
+  --dot-color-error: var(--error-badge-background-color);
+  --dot-color-warning: var(--warning-badge-background-color);
 
-  --side-line-background-color: var(--color-grey-225-10-35);
-  --side-line-extension-background-color: var(--color-grey-225-10-35);
+  --list-badge-color: var(--bio-text-on-primary);
+  --list-badge-background-color: var(--bio-neutral);
 
-  --list-entry-dot-background-color: var(--color-grey-225-10-35);
-  --list-entry-header-button-fill-color: var(--color-grey-225-10-35);
-  --list-entry-add-entry-empty-background-color: var(--color-blue-205-100-50);
-  --list-entry-add-entry-empty-hover-background-color: var(--color-blue-205-100-45);
-  --list-entry-add-entry-label-color: var(--color-white);
-  --list-entry-add-entry-background-color: var(--color-blue-205-100-50);
-  --list-entry-add-entry-fill-color: var(--color-white);
+  --input-background-color: var(--bio-surface-subtle);
+  --input-border-color: var(--bio-border-input);
+  --input-border-radius: var(--bio-radius-sm);
 
-  --dropdown-item-background-color: var(--color-white);
-  --dropdown-item-hover-background-color: var(--color-grey-225-10-95);
-  --dropdown-separator-background-color: var(--color-grey-225-10-75);
+  --checkbox-size: 14px;
+  --checkbox-border-radius: var(--bio-radius-lg);
+  --checkbox-border-color: var(--input-border-color);
+  --checkbox-background-color: var(--input-background-color);
+  --checkbox-checked-background-color: var(--bio-primary);
+  --checkbox-checked-border-color: var(--bio-primary);
+
+  --input-focus-background-color: var(--bio-primary-surface);
+  --input-focus-border-color: var(--bio-primary);
+
+  --focus-outline-color: var(--bio-focus);
+
+  /**
+   * Focus ring — reusable, themeable primitive shared by inputs, checkboxes,
+   * toggles and any control with the `bio-properties-panel-focus-ring` class.
+   */
+  --focus-ring-color: var(--bio-focus-ring);
+  --focus-ring-error-color: var(--bio-focus-ring-danger);
+  --focus-ring-warning-color: var(--bio-focus-ring-warning);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 0px;
+  --focus-ring-offset-color: var(--group-background-color);
+
+  --input-error-background-color: var(--bio-danger-surface-subtle);
+  --input-error-border-color: var(--bio-danger);
+  --input-error-focus-border-color: var(--bio-danger);
+
+  --input-warning-background-color: var(--bio-warning-surface);
+  --input-warning-border-color: var(--bio-warning);
+  --input-warning-focus-border-color: var(--bio-warning);
+
+  --input-disabled-color: var(--bio-text-subtlest);
+  --input-disabled-background-color: var(--bio-surface-subtle);
+  --input-disabled-border-color: var(--bio-border-disabled);
+
+  --toggle-switch-on-background-color: var(--bio-primary);
+  --toggle-switch-off-background-color: var(--bio-border-input);
+  --toggle-switch-switcher-background-color: var(--bio-surface);
+
+  --side-line-background-color: var(--bio-text-subtle);
+  --side-line-extension-background-color: var(--bio-text-subtle);
+
+  --list-entry-dot-background-color: var(--bio-neutral);
+  --list-entry-header-button-fill-color: var(--bio-text-subtle);
+  --list-entry-add-entry-empty-background-color: var(--bio-primary);
+  --list-entry-add-entry-empty-hover-background-color: var(--bio-primary-hover);
+  --list-entry-add-entry-label-color: var(--bio-text-on-primary);
+  --list-entry-add-entry-background-color: var(--bio-primary);
+  --list-entry-add-entry-fill-color: var(--bio-text-on-primary);
+
+  --dropdown-item-background-color: var(--bio-surface-overlay);
+  --dropdown-item-hover-background-color: var(--bio-surface-medium);
+  --dropdown-separator-background-color: var(--bio-border);
 
   --feel-background-color: transparent;
-  --feel-active-color: var(--color-blue-205-100-45);
-  --feel-inactive-color: var(--color-grey-225-10-35);
-  --feel-hover-color: var(--color-grey-225-10-15);
-  --feel-hover-background-color: var(--color-grey-225-10-97);
+  --feel-active-color: var(--accent-color);
+  --feel-inactive-color: var(--bio-text-subtle);
+  --feel-hover-color: var(--bio-text);
+  --feel-hover-background-color: var(--bio-surface-subtle);
   --feel-active-background-color: transparent;
-  --feel-required-color: var(--color-grey-225-10-55);
-  --feel-open-popup-color: hsla(0, 0%, 32%, 1);
-  --feel-open-popup-background-color: var(--color-white);
-  --feel-open-popup-hover-color: hsla(219, 99%, 53%, 1);
+  --feel-required-color: var(--bio-text-subtlest);
+  --feel-open-popup-color: var(--bio-text-subtle);
+  --feel-open-popup-background-color: var(--bio-surface-overlay);
+  --feel-open-popup-hover-color: var(--bio-primary);
 
-  --feel-indicator-background-color: var(--color-grey-225-10-90);
+  --feel-indicator-background-color: var(--bio-surface-strong);
 
-  --feelers-select-color:  var(--color-blue-205-100-85);
+  --feelers-select-color: var(--bio-primary-surface-strong);
 
   --text-size-base: 14px;
   --text-size-small: 13px;
   --text-size-smallest: 12px;
   --text-line-height: 21px;
-  --line-height-condensed: 17px;
+  --line-height-condensed: 18px;
+
+  --input-height: 28px;
+
+  --description-offset: 5px;
+  --label-offset: 3px;
 
   --font-family: sans-serif;
   --font-family-monospace: monospace;
@@ -287,7 +354,7 @@
   display: flex;
 }
 
-.bio-properties-panel-group-header-buttons .bio-properties-panel-group-header-button {
+.bio-properties-panel-group-header-button {
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -374,6 +441,10 @@
   background-color: var(--dot-color);
 }
 
+.bio-properties-panel-dot--warning {
+  --dot-color: var(--dot-color-warning);
+}
+
 .bio-properties-panel-dot--error {
   --dot-color: var(--dot-color-error);
 }
@@ -405,15 +476,26 @@
   background-color: var(--list-badge-background-color);
 }
 
+.bio-properties-panel-list-badge--warning {
+  --list-badge-background-color: var(--warning-badge-background-color);
+  --list-badge-color: var(--warning-badge-color);
+}
+
 .bio-properties-panel-list-badge--error {
-  --list-badge-background-color: var(--dot-color-error);
+  --list-badge-background-color: var(--error-badge-background-color);
+  --list-badge-color: var(--error-badge-color);
+}
+
+.bio-properties-panel-list-badge--accent {
+  --list-badge-background-color: var(--accent-badge-background-color);
+  --list-badge-color: var(--accent-badge-color);
 }
 
 /**
  * Basic entries
  */
 .bio-properties-panel-entry {
-  margin: 2px 32px 6px 12px;
+  margin: 3px 32px 6px 12px;
 }
 
 .bio-properties-panel-entry:last-child {
@@ -423,7 +505,7 @@
 .bio-properties-panel-label {
   display: block;
   font-size: var(--text-size-small);
-  margin: 2px 0 1px;
+  margin: var(--label-offset) 0;
 }
 
 .bio-properties-panel-description,
@@ -432,7 +514,7 @@
 .bio-properties-panel-description div {
   color: var(--description-color);
   display: block;
-  margin: 2px 0 4px;
+  margin: var(--description-offset) 0;
   line-height: var(--line-height-condensed);
   font-weight: 400;
   font-size: var(--text-size-small);
@@ -476,11 +558,25 @@
 
 .bio-properties-panel-feelers-editor.bio-properties-panel-input {
   padding: 0;
+  min-height: var(--input-height);
+}
+
+/**
+ * Normalize the vertical rhythm of the feelers and JSON editors so single-line
+ * editors line up with plain inputs. CodeMirror's default `.cm-content` padding
+ * of `4px 0` would otherwise render them a few pixels taller than the
+ * surrounding controls. (The FEEL editor already zeroes its own content padding
+ * and sizes to the shared baseline, so it is intentionally left untouched.)
+ */
+.bio-properties-panel-feelers-editor .cm-content,
+.bio-properties-panel-json-editor .cm-content {
+  padding-top: 3px;
+  padding-bottom: 2px;
 }
 
 .bio-properties-panel-feelers-input .cm-editor
 {
-  min-height: 32px;
+  min-height: var(--input-height);
   max-height: 215px;
   background-color: transparent;
 }
@@ -493,7 +589,7 @@
 .bio-properties-panel-input {
   padding: 3px 6px 2px;
   border: 1px solid var(--input-border-color);
-  border-radius: 2px;
+  border-radius: var(--input-border-radius);
   background-color: var(--input-background-color);
   font-size: var(--text-size-base);
   font-family: inherit;
@@ -505,23 +601,54 @@ textarea.bio-properties-panel-input,
 .bio-properties-panel-input[type=text] {
   display: block;
   width: 100%;
+  min-height: var(--input-height);
 }
 
-textarea.bio-properties-panel-input {
-  min-height: 28px;
-}
-
+/**
+ * Focus ring
+ *
+ * A themeable, reusable focus indicator shared by all controls — inputs,
+ * checkboxes (rendered as custom `appearance: none` controls so the ring
+ * paints and follows their corners) and toggles. To reuse it in a custom
+ * component, add the `bio-properties-panel-focus-ring` class to the focusable
+ * element; when placed inside an entry with `has-error` it switches to the
+ * error color. Tune the look via the `--focus-ring-*` variables (and
+ * `--input-border-radius` / `--checkbox-border-radius` for corners).
+ */
 .bio-properties-panel-input:focus,
-.bio-properties-panel-input:focus-within {
+.bio-properties-panel-input:focus-within,
+.bio-properties-panel-toggle-switch__switcher:focus-within,
+.bio-properties-panel-focus-ring:focus,
+.bio-properties-panel-focus-ring:focus-within {
   outline: none;
+  box-shadow:
+    0 0 0 var(--focus-ring-offset) var(--focus-ring-offset-color),
+    0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+}
+
+/* keep focus visible where box-shadow is dropped (e.g. Windows High Contrast) */
+@media (forced-colors: active) {
+  .bio-properties-panel-input:focus,
+  .bio-properties-panel-input:focus-within,
+  .bio-properties-panel-toggle-switch__switcher:focus-within,
+  .bio-properties-panel-focus-ring:focus,
+  .bio-properties-panel-focus-ring:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* the custom checkmark (SVG background) is not recolored by the OS; fall back
+     to the native checkbox so the checked state stays visible */
+  .bio-properties-panel-input[type="checkbox"] {
+    appearance: auto;
+    -webkit-appearance: auto;
+  }
+}
+
+.bio-properties-panel-input:focus:not([type="checkbox"]),
+.bio-properties-panel-input:focus-within {
   background-color: var(--input-focus-background-color);
   border: 1px solid var(--input-focus-border-color);
-}
-
-.bio-properties-panel-textfield:focus-within,
-.bio-properties-panel-feel-entry:focus-within {
-  --input-background-color: var(--input-focus-background-color);
-  --input-border-color: var(--input-focus-border-color);
 }
 
 .bio-properties-panel-input:disabled {
@@ -534,26 +661,62 @@ select.bio-properties-panel-input {
   padding: 4px 6px;
 }
 
+.bio-properties-panel code,
 .bio-properties-panel-input-monospace {
   font-family: var(--font-family-monospace);
 }
 
-.bio-properties-panel-input[type="checkbox"], .bio-properties-panel-input[type="radio"] {
+.bio-properties-panel-input[type="radio"] {
   margin: 0;
   vertical-align: middle;
 }
 
-.bio-properties-panel-input[type="checkbox"]:focus {
-  outline: auto;
-  outline-color: var(--focus-outline-color);
-  outline-offset: 2px;
+/* native radios drop `box-shadow`; keep a visible outline-based focus ring */
+.bio-properties-panel-input[type="radio"]:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/**
+ * Checkbox
+ *
+ * Rendered as a custom control (`appearance: none`) following shadcn/ui: native
+ * checkboxes drop `box-shadow`, so the shared focus ring could never paint on
+ * them and fell back to the browser's square outline. As a custom element the
+ * box-shadow ring renders and follows `border-radius`, giving a properly rounded
+ * ring — no checkbox-specific focus rule needed. Themeable via `--checkbox-*`.
+ */
+.bio-properties-panel-input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  border: 1px solid var(--checkbox-border-color);
+  border-radius: var(--checkbox-border-radius);
+  background: var(--checkbox-background-color) center / contain no-repeat;
+  cursor: pointer;
+}
+
+.bio-properties-panel-input[type="checkbox"]:checked {
+  border-color: var(--checkbox-checked-border-color);
+  background-color: var(--checkbox-checked-background-color);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 4.5 6.5 11.5 3 8'/%3E%3C/svg%3E");
+}
+
+.bio-properties-panel-input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  border-color: var(--input-disabled-border-color);
+  background-color: var(--input-disabled-background-color);
 }
 
 .bio-properties-panel-checkbox > .bio-properties-panel-label {
   display: inline-block;
   font-size: var(--text-size-base);
   margin-left: 6px;
-  margin-top: auto;
   vertical-align: middle;
 }
 
@@ -569,6 +732,36 @@ textarea.bio-properties-panel-input {
   resize: vertical;
 }
 
+textarea.bio-properties-panel-input.auto-resize {
+  /* auto-resizing textareas grow with their content, so manual resizing is pointless */
+  resize: none;
+  field-sizing: content;
+}
+
+.bio-properties-panel-entry.has-warning .bio-properties-panel-input,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-feel-editor__open-popup-placeholder {
+  border-color: var(--input-warning-border-color);
+  background-color: var(--input-warning-background-color);
+}
+
+.bio-properties-panel-entry.has-warning .bio-properties-panel-feel-indicator {
+  border-color: var(--input-warning-border-color);
+}
+
+.bio-properties-panel-entry.has-warning .bio-properties-panel-input:focus,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-input:focus-within,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-feel-indicator:focus {
+  border-color: var(--input-warning-focus-border-color);
+}
+
+.bio-properties-panel-entry.has-warning .bio-properties-panel-input:focus,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-input:focus-within,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-toggle-switch__switcher:focus-within,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-focus-ring:focus,
+.bio-properties-panel-entry.has-warning .bio-properties-panel-focus-ring:focus-within {
+  --focus-ring-color: var(--focus-ring-warning-color);
+}
+
 .bio-properties-panel-entry.has-error .bio-properties-panel-input,
 .bio-properties-panel-entry.has-error .bio-properties-panel-feel-editor__open-popup-placeholder {
   border-color: var(--input-error-border-color);
@@ -580,14 +773,82 @@ textarea.bio-properties-panel-input {
 }
 
 .bio-properties-panel-entry.has-error .bio-properties-panel-input:focus,
+.bio-properties-panel-entry.has-error .bio-properties-panel-input:focus-within,
 .bio-properties-panel-entry.has-error .bio-properties-panel-feel-indicator:focus {
   border-color: var(--input-error-focus-border-color);
 }
 
-.bio-properties-panel-entry .bio-properties-panel-error {
-  color: var(--text-error-color);
-  margin: 4px 0;
+.bio-properties-panel-entry.has-error .bio-properties-panel-input:focus,
+.bio-properties-panel-entry.has-error .bio-properties-panel-input:focus-within,
+.bio-properties-panel-entry.has-error .bio-properties-panel-toggle-switch__switcher:focus-within,
+.bio-properties-panel-entry.has-error .bio-properties-panel-focus-ring:focus,
+.bio-properties-panel-entry.has-error .bio-properties-panel-focus-ring:focus-within {
+  --focus-ring-color: var(--focus-ring-error-color);
+}
+
+.bio-properties-panel-info,
+.bio-properties-panel-warning,
+.bio-properties-panel-error {
+  display: flow-root;
+  margin: var(--description-offset) 0;
+  /* reserve the diagnostic action's border + padding, so height stays constant whether it is present or not */
+  min-height: calc(var(--line-height-condensed) + 4px);
   font-size: var(--text-size-small);
+  line-height: var(--line-height-condensed);
+}
+
+.bio-properties-panel-info {
+  color: var(--description-color);
+}
+
+.bio-properties-panel-warning {
+  color: var(--text-warning-color);
+}
+
+.bio-properties-panel-error {
+  color: var(--text-error-color);
+}
+
+.bio-properties-panel-diagnostic-icon {
+  float: left;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  margin-right: 4px;
+  color: var(--diagnostic-icon-color);
+}
+
+.bio-properties-panel-tooltip-wrapper:has(.bio-properties-panel-diagnostic-action) {
+  display: inline-flex;
+  vertical-align: top;
+  margin-left: 4px;
+}
+
+/* no message to offset the action from */
+.bio-properties-panel-tooltip-wrapper:has(.bio-properties-panel-diagnostic-action):first-child {
+  margin-left: 0;
+}
+
+.bio-properties-panel-diagnostic-action {
+  color: var(--accent-color);
+  background-color: transparent;
+  border: 1px solid var(--accent-color);
+  border-radius: var(--diagnostic-action-border-radius);
+  padding: 1px 8px;
+  font-family: inherit;
+  font-size: var(--text-size-small);
+  line-height: var(--line-height-condensed);
+  cursor: pointer;
+}
+
+.bio-properties-panel-diagnostic-action:hover {
+  color: var(--bio-text-on-primary);
+  background-color: var(--accent-color);
+}
+
+.bio-properties-panel-diagnostic-action:focus {
+  outline-offset: 2px;
+  outline-color: var(--focus-outline-color);
 }
 
 .bio-properties-panel-simple {
@@ -597,6 +858,28 @@ textarea.bio-properties-panel-input {
 
 .bio-properties-panel-simple + .bio-properties-panel-remove-entry {
   margin: auto;
+}
+
+/**
+ * JSON Editor (CodeMirror)
+ */
+
+.bio-properties-panel-json-editor .bio-properties-panel-input {
+  padding: 0;
+  min-height: var(--input-height);
+}
+
+.bio-properties-panel-json-editor .cm-editor {
+  font-family: var(--font-family-monospace);
+}
+
+.bio-properties-panel-json-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.bio-properties-panel-json-editor .cm-scroller {
+  overflow: auto;
+  max-height: 215px;
 }
 
 /**
@@ -643,11 +926,7 @@ textarea.bio-properties-panel-input {
   position: relative;
   width: 32px;
   height: 16px;
-}
-
-.bio-properties-panel-toggle-switch .bio-properties-panel-toggle-switch__switcher:focus-within {
-  outline: 2px solid var(--input-focus-border-color);
-  outline-offset: 1px;
+  border-radius: 34px;
 }
 
 .bio-properties-panel-toggle-switch .bio-properties-panel-toggle-switch__switcher input[type='checkbox'] {
@@ -833,11 +1112,18 @@ textarea.bio-properties-panel-input {
 }
 
 .bio-properties-panel-list-entry-header {
-  position: relative;
+  position: sticky;
   overflow: hidden;
   display: flex;
   justify-content: space-between;
   height: 32px;
+}
+
+.bio-properties-panel-list-entry-header.sticky {
+  background-color: var(--sticky-list-entry-background-color);
+  border-bottom: 1px solid var(--sticky-group-bottom-border-color);
+  top: 32px;
+  z-index: 9;
 }
 
 /* Nested list dot */
@@ -988,7 +1274,7 @@ textarea.bio-properties-panel-input {
 
   padding: 8px 0;
 
-  box-shadow: 0 1px 4px 0 var(--color-grey-225-10-85), 0 2px 16px 0 var(--color-grey-225-10-75)
+  box-shadow: 0 1px 4px 0 var(--bio-shadow-subtle), 0 2px 16px 0 var(--bio-shadow)
 }
 
 .bio-properties-panel-dropdown-button__menu-item {
@@ -1100,7 +1386,17 @@ textarea.bio-properties-panel-input {
 .bio-properties-panel-feel-container .bio-properties-panel-feel-editor-container>div {
   position: static;
   padding-left: 2.4em !important;
-  min-height: 28px;
+  min-height: var(--input-height);
+}
+
+/* reserve space on the first line for the open pop-up button, only while the input is focused or hovered */
+.bio-properties-panel-feel-container .bio-properties-panel-feel-editor-container:is(:hover, :focus-within) .cm-line:first-child::before,
+.bio-properties-panel-feelers-input .bio-properties-panel-feelers-editor-container:is(:hover, :focus-within) .cm-line:first-child::before,
+.bio-properties-panel-feel-container .bio-properties-panel-feelers-editor-container:is(:hover, :focus-within) .cm-line:first-child::before {
+  content: "";
+  float: right;
+  width: 1.7em;
+  height: 1.5em;
 }
 
 .bio-properties-panel-feel-indicator {
@@ -1108,12 +1404,34 @@ textarea.bio-properties-panel-input {
   border: 1px solid var(--input-border-color);
   background-color: var(--feel-indicator-background-color);
   border-right: 0px;
-  border-radius: 2px 0 0 2px;
+  border-radius: var(--input-border-radius) 0 0 var(--input-border-radius);
   z-index: 1;
   height: 100%;
   width: 2em;
   text-align: center;
   padding: 2px 6px;
+}
+
+/**
+ * `:has()` so the indicator tracks real editor focus only — a plain
+ * `:focus-within` would also match the sibling pop-out button. Degrades to a
+ * neutral border where `:has()` is unsupported.
+ */
+.bio-properties-panel-feel-container:has(.bio-properties-panel-input:focus-within)
+  .bio-properties-panel-feel-indicator {
+  border-color: var(--input-focus-border-color);
+}
+
+.bio-properties-panel-entry.has-warning
+  .bio-properties-panel-feel-container:has(.bio-properties-panel-input:focus-within)
+  .bio-properties-panel-feel-indicator {
+  border-color: var(--input-warning-focus-border-color);
+}
+
+.bio-properties-panel-entry.has-error
+  .bio-properties-panel-feel-container:has(.bio-properties-panel-input:focus-within)
+  .bio-properties-panel-feel-indicator {
+  border-color: var(--input-error-focus-border-color);
 }
 
 .bio-properties-panel-feel-editor-container .cm-scroller {
@@ -1167,23 +1485,35 @@ textarea.bio-properties-panel-input {
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 2px;
+  text-decoration-color: var(--tooltip-underline-color);
   font: inherit;
   display: flex;
   justify-content: center;
   width: fit-content;
 }
 
+.bio-properties-panel-tooltip-wrapper:hover,
+.bio-properties-panel-tooltip-wrapper:focus,
+.bio-properties-panel-tooltip-wrapper:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+/* the diagnostic action is a button, not text that hints at more info */
+.bio-properties-panel-tooltip-wrapper:has(.bio-properties-panel-diagnostic-action) {
+  text-decoration: none;
+}
+
 .bio-properties-panel-tooltip {
-  --tooltip-underline-color: var(--color-blue-219-99-53);
-  --tooltip-background-color: var(--color-grey-0-0-22);
-  --tooltip-link: var(--color-blue-218-100-74);
-  --tooltip-code-background-color: var(--color-grey-225-10-97);
-  --tooltip-code-border-color: var(--color-grey-225-10-85);
+  --tooltip-background-color: var(--bio-surface-inverted);
+  --tooltip-color: var(--bio-text-on-inverted);
+  --tooltip-link: var(--bio-info-on-inverted);
+  --tooltip-code-background-color: var(--bio-surface-subtle);
+  --tooltip-code-border-color: var(--bio-border-subtle);
 
   display: flex;
-  color: var(--color-white, white);
+  color: var(--tooltip-color);
   position: fixed;
-  z-index: 1000;
+  z-index: 1001;
   max-width: 300px;
   font-size: var(--text-size-small);
   font-family: var(--font-family);
@@ -1240,8 +1570,8 @@ textarea.bio-properties-panel-input {
 }
 
 .bio-properties-panel-tooltip .bio-properties-panel-tooltip-arrow {
-  width: 0; 
-  height: 0; 
+  width: 0;
+  height: 0;
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
   border-left: 5px solid var(--tooltip-background-color);
@@ -1254,15 +1584,20 @@ textarea.bio-properties-panel-input {
   transform: rotate(90deg);
 }
 
+.bio-properties-panel-textarea-container {
+  position: relative;
+}
+
 .bio-properties-panel-feelers-editor-container .bio-properties-panel-feelers-editor__open-popup-placeholder,
-.bio-properties-panel-feel-editor-container .bio-properties-panel-feel-editor__open-popup-placeholder {
+.bio-properties-panel-feel-editor-container .bio-properties-panel-feel-editor__open-popup-placeholder,
+.bio-properties-panel-textarea-container .bio-properties-panel-textarea__open-popup-placeholder {
   display: none;
   justify-content: center;
   flex-direction: column;
   color: hsla(0, 0%, 9%, 0.25);
   padding: 3px 6px 2px;
   border: 1px solid var(--input-border-color);
-  border-radius: 2px;
+  border-radius: var(--input-border-radius);
   background-color: var(--input-background-color);
   font-size: var(--text-size-base);
   font-family: inherit;
@@ -1275,19 +1610,30 @@ textarea.bio-properties-panel-input {
   display: none;
 }
 
+.bio-properties-panel-textarea-container.popupOpen .bio-properties-panel-input {
+  visibility: hidden;
+}
+
 .bio-properties-panel-feelers-editor-container.popupOpen .bio-properties-panel-feelers-editor__open-popup-placeholder,
-.bio-properties-panel-feel-editor-container.popupOpen .bio-properties-panel-feel-editor__open-popup-placeholder {
+.bio-properties-panel-feel-editor-container.popupOpen .bio-properties-panel-feel-editor__open-popup-placeholder,
+.bio-properties-panel-textarea-container.popupOpen .bio-properties-panel-textarea__open-popup-placeholder {
   display: flex;
 }
 
-.bio-properties-panel-popup {
-  --popup-background-color: hsla(0, 0%, 96%, 1);
-  --popup-header-background-color: white;
-  --popup-font-color: hsla(0, 0%, 0%, 1);
-  --popup-title-color: hsla(0, 0%, 0%, 1);
+.bio-properties-panel-textarea-container.popupOpen .bio-properties-panel-textarea__open-popup-placeholder {
+  position: absolute;
+  inset: 0;
+  justify-content: flex-start;
+}
 
-  --feel-popup-close-background-color: hsla(219, 99%, 53%, 1);
-  --feel-popup-gutters-background-color: hsla(0, 0%, 90%, 1);
+.bio-properties-panel-popup {
+  --popup-background-color: var(--bio-surface-subtle);
+  --popup-header-background-color: var(--bio-surface);
+  --popup-font-color: var(--bio-text);
+  --popup-title-color: var(--bio-text);
+
+  --feel-popup-close-background-color: var(--bio-primary);
+  --feel-popup-gutters-background-color: var(--bio-surface-strong);
 
   position: fixed;
   display: flex;
@@ -1305,9 +1651,24 @@ textarea.bio-properties-panel-input {
   font-size: 14px;
 }
 
-.bio-properties-panel-popup h1, 
-.bio-properties-panel-popup h2, 
-.bio-properties-panel-popup h3, 
+.bio-properties-panel-popup.resizable {
+  max-width: 90vw;
+  max-height: 90vh;
+  resize: both;
+}
+
+/**
+ * Popups render through a portal outside `.bio-properties-panel`, so re-apply
+ * the global box-sizing reset here.
+ */
+.bio-properties-panel-popup,
+.bio-properties-panel-popup * {
+  box-sizing: border-box;
+}
+
+.bio-properties-panel-popup h1,
+.bio-properties-panel-popup h2,
+.bio-properties-panel-popup h3,
 .bio-properties-panel-popup h4 {
   font-weight: 500;
   font-size: inherit;
@@ -1356,6 +1717,7 @@ textarea.bio-properties-panel-input {
 
 .bio-properties-panel-popup .bio-properties-panel-popup__title {
   margin-left: 8px;
+  margin-right: auto;
 }
 
 .bio-properties-panel-popup .bio-properties-panel-popup__title::first-letter {
@@ -1405,11 +1767,6 @@ textarea.bio-properties-panel-input {
   right: 8px;
 }
 
-.bio-properties-panel-feel-popup {
-  min-height: 400px;
-  width: fit-content;
-}
-
 .bio-properties-panel-feel-popup .bio-properties-panel-feel-popup__body {
   display: flex;
   margin: 0;
@@ -1419,7 +1776,7 @@ textarea.bio-properties-panel-input {
 }
 
 .bio-properties-panel-feel-popup__title-link {
-  margin-left: 8px; 
+  margin-left: 8px;
   display: flex;
 }
 
@@ -1469,30 +1826,42 @@ textarea.bio-properties-panel-input {
 }
 
 .bio-properties-panel-feelers-editor-container .bio-properties-panel-open-feel-popup,
-.bio-properties-panel-feel-container .bio-properties-panel-open-feel-popup {
+.bio-properties-panel-feel-container .bio-properties-panel-open-feel-popup,
+.bio-properties-panel-textarea-container .bio-properties-panel-open-feel-popup {
   position: absolute;
-  top: 0;
+  top: 4px;
   right: 0;
   line-height: 1;
   padding: 2px 4px;
-  margin: 3px;
+  margin: 0 3px;
   display: none;
   background: none;
   border: none;
-  color: var(--feel-open-popup-color);
+  fill: var(--feel-open-popup-color);
   cursor: pointer;
+}
+
+.bio-properties-panel-feelers-editor-container .bio-properties-panel-open-feel-popup svg,
+.bio-properties-panel-feel-container .bio-properties-panel-open-feel-popup svg,
+.bio-properties-panel-textarea-container .bio-properties-panel-open-feel-popup svg {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 .bio-properties-panel-feelers-editor-container:hover .bio-properties-panel-open-feel-popup,
 .bio-properties-panel-feel-container:hover .bio-properties-panel-open-feel-popup,
+.bio-properties-panel-textarea-container:hover .bio-properties-panel-open-feel-popup,
 .bio-properties-panel-feelers-editor-container:focus-within .bio-properties-panel-open-feel-popup,
-.bio-properties-panel-feel-container:focus-within .bio-properties-panel-open-feel-popup {
+.bio-properties-panel-feel-container:focus-within .bio-properties-panel-open-feel-popup,
+.bio-properties-panel-textarea-container:focus-within .bio-properties-panel-open-feel-popup {
   display: block;
 }
 
 .bio-properties-panel-feelers-editor-container .bio-properties-panel-open-feel-popup:hover,
-.bio-properties-panel-feel-container .bio-properties-panel-open-feel-popup:hover {
-  color: var(--feel-open-popup-hover-color);
+.bio-properties-panel-feel-container .bio-properties-panel-open-feel-popup:hover,
+.bio-properties-panel-textarea-container .bio-properties-panel-open-feel-popup:hover {
+  fill: var(--feel-open-popup-hover-color);
 }
 
 .bio-properties-panel-feel-popup .bio-properties-panel-popup__footer .bio-properties-panel-feel-popup__close-btn {
@@ -1532,4 +1901,19 @@ textarea.bio-properties-panel-input {
 
 .bio-properties-panel-feel-popup .cm-gutters .cm-lineNumbers .cm-gutterElement {
   text-align: center;
+}
+
+.bio-properties-panel-text-popup .bio-properties-panel-input {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  resize: none;
+  border: none;
+  padding: 8px 12px;
+}
+
+/* Checkbox Group */
+.bio-properties-panel-checkbox-group .bio-properties-panel-checkbox-group-entries > .bio-properties-panel-entry {
+  margin: 0;
+  padding: 0;
 }

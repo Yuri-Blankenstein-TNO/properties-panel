@@ -1,11 +1,11 @@
 import Description from '../Description';
+import DiagnosticMessage from '../Diagnostic';
 import TemplatingEditor from '../templating/TemplatingEditor';
 
 import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState
 } from 'preact/hooks';
@@ -17,28 +17,34 @@ import classnames from 'classnames';
 import { isFunction, isString } from 'min-dash';
 
 import {
+  useDebounce,
+  useDiagnostics,
   useShowEntryEvent,
-  useError,
   useStaticCallback
 } from '../../../hooks';
 
-import CodeEditor from './FeelEditor';
+import FeelEditor from './FeelEditor';
 import { FeelIndicator } from './FeelIndicator';
 import FeelIcon from './FeelIcon';
 
-import { FEEL_POPUP_WIDTH } from './FeelPopup';
+import { EventContext, FeelLanguageContext } from '../../../context';
+import { isCmdWithChar } from '../../util/keyboardUtils';
 
-import { FeelPopupContext } from './context';
+import translateFallback from '../../util/translateFallback';
 
 import { ToggleSwitch } from '../ToggleSwitch';
 
 import { NumberField } from '../NumberField';
 import Tooltip from '../Tooltip';
 
+import { getDiagnosticClass, getMostSevere } from '../../util/diagnostics';
+
+{ /* Required to break up imports, see https://github.com/babel/babel/issues/15156 */ }
+
 const noop = () => {};
 
 /**
- * @typedef {'required'|'optional'|'static'} FeelType
+ * @typedef {'required'|'optional'|'optional-default-enabled'|'static'} FeelType
  */
 
 /**
@@ -60,16 +66,16 @@ const noop = () => {};
  * @param {Array} props.variables
  * @param {string} [props.placeholder]
  * @param {string | import('preact').Component} props.tooltip
+ * @param {Function} props.translate
  */
-
-function FeelTextfieldComponent(props) {
+function FeelTextfield(props) {
   const {
     debounce,
     id,
     element,
     label,
     hostLanguage,
-    onInput,
+    onInput: commitValue,
     onBlur,
     onError,
     placeholder,
@@ -80,25 +86,34 @@ function FeelTextfieldComponent(props) {
     singleLine,
     tooltipContainer,
     OptionalComponent = OptionalFeelInput,
-    tooltip
+    tooltip,
+    translate
   } = props;
 
-  const [ localValue, setLocalValue ] = useState(value);
+  const [ localValue, setLocalValue ] = useState(getInitialFeelLocalValue(feel, value));
 
   const editorRef = useShowEntryEvent(id);
   const containerRef = useRef();
 
-  const feelActive = (isString(localValue) && localValue.startsWith('=')) || feel === 'required';
-  const feelOnlyValue = (isString(localValue) && localValue.startsWith('=')) ? localValue.substring(1) : localValue;
+  const onInput = useCallback(newValue => {
+
+    // we don't commit empty FEEL expressions,
+    // but instead serialize them as <undefined>
+    const newModelValue = (newValue === '' || newValue === '=') ? undefined : newValue;
+    commitValue(newModelValue);
+  }, [ commitValue ]);
+
+  const feelActive = isFeelActive(feel, localValue);
+  const feelOnlyValue = getFeelValue(localValue);
+  const feelLanguageContext = useContext(FeelLanguageContext);
 
   const [ focus, _setFocus ] = useState(undefined);
 
   const {
-    open: openPopup,
-    source: popupSource
-  } = useContext(FeelPopupContext);
+    eventBus
+  } = useContext(EventContext);
 
-  const popuOpen = popupSource === id;
+  const [ isPopupOpen, setIsPopupOpen ] = useState(false);
 
   const setFocus = (offset = 0) => {
     const hasFocus = containerRef.current.contains(document.activeElement);
@@ -112,19 +127,14 @@ function FeelTextfieldComponent(props) {
   /**
    * @type { import('min-dash').DebouncedFunction }
    */
-  const handleInputCallback = useMemo(() => {
-    return debounce((newValue) => {
-      onInput(newValue);
-    });
-  }, [ onInput, debounce ]);
+  const handleInput = useDebounce(onInput, debounce);
 
-  const handleInput = newValue => {
+  const setAndCommitValue = (newValue) => {
 
-    // we don't commit empty FEEL expressions,
-    // but instead serialize them as <undefined>
-    const newModelValue = (newValue === '' || newValue === '=') ? undefined : newValue;
-
-    handleInputCallback(newModelValue);
+    // cancel any pending debounced value
+    handleInput.cancel?.();
+    setLocalValue(newValue);
+    onInput(newValue);
   };
 
   const handleFeelToggle = useStaticCallback(() => {
@@ -133,15 +143,13 @@ function FeelTextfieldComponent(props) {
     }
 
     if (!feelActive) {
-      setLocalValue('=' + localValue);
-      handleInput('=' + localValue);
+      setAndCommitValue('=' + localValue);
     } else {
-      setLocalValue(feelOnlyValue);
-      handleInput(feelOnlyValue);
+      setAndCommitValue(feelOnlyValue);
     }
   });
 
-  const handleLocalInput = (newValue) => {
+  const handleInputChange = (newValue) => {
     if (feelActive) {
       newValue = '=' + newValue;
     }
@@ -160,18 +168,49 @@ function FeelTextfieldComponent(props) {
     }
   };
 
-  const handleOnBlur = (e) => {
-    const value = e.target.value;
+  const handleOptionalInputOnBlur = (e) => {
+    if (e.target.type === 'checkbox') {
+      setAndCommitValue(e.target.checked);
+    } else {
+      const trimmedValue = e.target.value.trim();
 
-    // we trim the value, if it is needed
-    // and update input accordingly
-    if (value.trim() !== value) {
-      setLocalValue(value.trim());
-      handleInput(value.trim());
+      if (trimmedValue !== localValue) {
+
+        // Trim changed the value — commit trimmed
+        setAndCommitValue(trimmedValue);
+      } else {
+
+        // Value unchanged — flush any pending debounce
+        handleInput.flush?.();
+      }
     }
 
     if (onBlur) {
       onBlur(e);
+    }
+  };
+
+  const handleFeelEditorOnBlur = () => {
+    handleInput.flush?.();
+  };
+
+  const handleOnKeyDown = e => {
+
+    // number inputs do not accept `=`, convert to FEEL explicitly
+    // if the field is empty; caret position is not exposed for number inputs
+    const isCommand = (e.ctrlKey || e.metaKey) && !e.getModifierState?.('AltGraph');
+
+    if (e.key === '=' && !isCommand && !feelActive && isFeelOptional(feel) && !disabled && e.target.type === 'number' && !e.target.value) {
+      e.preventDefault();
+      handleFeelToggle();
+
+      // number inputs expose no caret position
+      _setFocus(Infinity);
+      return;
+    }
+
+    if (isCmdWithChar(e)) {
+      handleInput.flush?.();
     }
   };
 
@@ -180,27 +219,59 @@ function FeelTextfieldComponent(props) {
     const syntaxError = lint.some(report => report.type === 'Syntax Error');
 
     if (syntaxError) {
-      onError('Unparsable FEEL expression.');
+      onError(translate('Unparsable FEEL expression.'));
     } else {
       onError(undefined);
     }
   });
 
-  const handlePopupOpen = (type = 'feel') => {
-    const popupOptions = {
-      id,
+  const applyPopupDraft = useStaticCallback((newValue) => {
+    if (newValue !== localValue) {
+      setAndCommitValue(newValue);
+    }
+  });
+
+  const handleOpenPopup = (type = 'feel') => {
+    let draft;
+
+    const isOpen = eventBus.fire('propertiesPanel.openPopup', {
+      element,
+      entryId: id,
       hostLanguage,
-      onInput: handleLocalInput,
-      position: calculatePopupPosition(containerRef.current),
+      label,
+      onInput: (newValue) => {
+        draft = feelActive ? '=' + newValue : newValue;
+      },
       singleLine,
-      title: getPopupTitle(element, label),
+      sourceElement: editorRef.current,
       tooltipContainer,
       type,
       value: feelOnlyValue,
-      variables
-    };
+      variables,
+      feelLanguageContext,
+    });
 
-    openPopup(id, popupOptions, editorRef.current);
+    if (isOpen) {
+      const commitDraft = () => {
+        if (draft !== undefined) {
+          const value = draft;
+          draft = undefined;
+
+          applyPopupDraft(value);
+        }
+      };
+
+      eventBus.on('propertiesPanelPopup.commit', commitDraft);
+
+      eventBus.once('propertiesPanelPopup.close', () => {
+        eventBus.off('propertiesPanelPopup.commit', commitDraft);
+        commitDraft();
+
+        setIsPopupOpen(false);
+      });
+    }
+
+    setIsPopupOpen(isOpen === true);
   };
 
   useEffect(() => {
@@ -224,6 +295,11 @@ function FeelTextfieldComponent(props) {
     setLocalValue(value);
   }, [ value ]);
 
+  useEffect(() => {
+    return () => {
+      eventBus.fire('propertiesPanel.closePopup');
+    };
+  }, []);
 
   // copy-paste integration
   useEffect(() => {
@@ -235,17 +311,40 @@ function FeelTextfieldComponent(props) {
     };
 
     const pasteHandler = event => {
-      if (feelActive || popuOpen) {
+      if (feelActive || isPopupOpen) {
         return;
       }
 
-      const data = event.clipboardData.getData('application/FEEL');
-
-      if (data) {
+      const feelData = event.clipboardData.getData('application/FEEL');
+      if (feelData) {
         setTimeout(() => {
           handleFeelToggle();
           setFocus();
         });
+        return;
+      }
+
+      const target = event.target;
+
+      // Skip for non-input/textArea elements (e.g. CodeMirror contenteditable)
+      if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      const isFieldEmpty = !target.value;
+      const isAllSelected = target.selectionStart === 0 && target.selectionEnd === target.value.length;
+
+      if (isFieldEmpty || isAllSelected) {
+        const textData = event.clipboardData.getData('text');
+        const trimmedValue = textData.trim();
+
+        setAndCommitValue(trimmedValue);
+
+        if (!feelActive && isString(trimmedValue) && trimmedValue.startsWith('=')) {
+          setFocus(trimmedValue.length - 1);
+        }
+
+        event.preventDefault();
       }
     };
     containerRef.current.addEventListener('copy', copyHandler);
@@ -272,40 +371,50 @@ function FeelTextfieldComponent(props) {
           label={ label }
           feel={ feel }
           onClick={ handleFeelToggle }
-          active={ feelActive }></FeelIcon>
+          active={ feelActive }
+          translate={ translate }
+        />
       </label>
 
       <div class="bio-properties-panel-feel-container" ref={ containerRef }>
         <FeelIndicator
           active={ feelActive }
-          disabled={ feel !== 'optional' || disabled }
+          disabled={ !isFeelOptional(feel) || disabled }
           onClick={ handleFeelToggle }
         />
         {feelActive ?
-          <CodeEditor
+          <FeelEditor
             name={ id }
-            onInput={ handleLocalInput }
+            onInput={ handleInputChange }
+            onBlur={ handleFeelEditorOnBlur }
+            onKeyDown={ handleOnKeyDown }
             contentAttributes={ { 'id': prefixId(id), 'aria-label': label } }
             disabled={ disabled }
-            popupOpen={ popuOpen }
-            onFeelToggle={ () => { handleFeelToggle(); setFocus(true); } }
+            popupOpen={ isPopupOpen }
+            onFeelToggle={ () => {
+              handleFeelToggle();
+              setFocus(true);
+            } }
             onLint={ handleLint }
-            onPopupOpen={ handlePopupOpen }
+            onOpenPopup={ handleOpenPopup }
             placeholder={ placeholder }
             value={ feelOnlyValue }
             variables={ variables }
+            feelLanguageContext={ feelLanguageContext }
             ref={ editorRef }
             tooltipContainer={ tooltipContainer }
+            translate={ translate }
           /> :
           <OptionalComponent
             { ...props }
-            popupOpen={ popuOpen }
-            onInput={ handleLocalInput }
-            onBlur={ handleOnBlur }
+            popupOpen={ isPopupOpen }
+            onInput={ handleInputChange }
+            onKeyDown={ handleOnKeyDown }
+            onBlur={ handleOptionalInputOnBlur }
             contentAttributes={ { 'id': prefixId(id), 'aria-label': label } }
             value={ localValue }
             ref={ editorRef }
-            onPopupOpen={ handlePopupOpen }
+            onOpenPopup={ handleOpenPopup }
             containerRef={ containerRef }
           />
         }
@@ -314,13 +423,13 @@ function FeelTextfieldComponent(props) {
   );
 }
 
-const FeelTextfield = withAutoClosePopup(FeelTextfieldComponent);
 
 const OptionalFeelInput = forwardRef((props, ref) => {
   const {
     id,
     disabled,
     onInput,
+    onKeyDown,
     value,
     onFocus,
     onBlur,
@@ -360,11 +469,11 @@ const OptionalFeelInput = forwardRef((props, ref) => {
     class="bio-properties-panel-input"
     onInput={ e => onInput(e.target.value) }
     onFocus={ onFocus }
+    onKeyDown={ onKeyDown }
     onBlur={ onBlur }
     placeholder={ placeholder }
     value={ value || '' } />;
 });
-
 
 const OptionalFeelNumberField = forwardRef((props, ref) => {
   const {
@@ -377,28 +486,22 @@ const OptionalFeelNumberField = forwardRef((props, ref) => {
     max,
     step,
     onFocus,
-    onBlur
+    onBlur,
+    onKeyDown
   } = props;
 
   const inputRef = useRef();
 
-  // To be consistent with the FEEL editor, set focus at start of input
-  // this ensures clean editing experience when switching with the keyboard
+  // Number inputs do not support selection ranges,
+  // so the focus position is ignored and the input is only focused
   ref.current = {
-    focus: (position) => {
+    focus: () => {
       const input = inputRef.current;
       if (!input) {
         return;
       }
 
       input.focus();
-      if (typeof position === 'number' && position !== Infinity) {
-        if (position > value.length) {
-          position = value.length;
-        }
-        input.setSelectionRange(position, position);
-      }
-
     }
   };
 
@@ -415,9 +518,9 @@ const OptionalFeelNumberField = forwardRef((props, ref) => {
     value={ value }
     onFocus={ onFocus }
     onBlur={ onBlur }
+    onKeyDown={ onKeyDown }
   />;
 });
-
 
 const OptionalFeelTextArea = forwardRef((props, ref) => {
   const {
@@ -499,7 +602,6 @@ const OptionalFeelToggleSwitch = forwardRef((props, ref) => {
     switcherLabel={ switcherLabel } />;
 });
 
-
 const OptionalFeelCheckbox = forwardRef((props, ref) => {
   const {
     id,
@@ -542,6 +644,7 @@ const OptionalFeelCheckbox = forwardRef((props, ref) => {
     disabled={ disabled } />;
 });
 
+
 /**
  * @param {Object} props
  * @param {Object} props.element
@@ -554,7 +657,7 @@ const OptionalFeelCheckbox = forwardRef((props, ref) => {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -584,11 +687,12 @@ export default function FeelEntry(props) {
     onFocus,
     onBlur,
     placeholder,
-    tooltip
+    tooltip,
+    translate = translateFallback
   } = props;
 
-  const [ validationError, setValidationError ] = useState(null);
-  const [ localError, setLocalError ] = useState(null);
+  const [ validationDiagnostic, setValidationDiagnostic ] = useState(null);
+  const [ lintDiagnostic, setLintDiagnostic ] = useState(null);
 
   let value = getValue(element);
 
@@ -596,40 +700,41 @@ export default function FeelEntry(props) {
     if (isFunction(validate)) {
       const newValidationError = validate(value) || null;
 
-      setValidationError(newValidationError);
+      setValidationDiagnostic(newValidationError);
     }
   }, [ value, validate ]);
 
-  const onInput = useCallback((newValue) => {
+  const onInput = useStaticCallback((newValue) => {
     const value = getValue(element);
-    let newValidationError = null;
 
-    if (isFunction(validate)) {
-      newValidationError = validate(newValue) || null;
-    }
-
-    // don't create multiple commandStack entries for the same value
+    // don't create multiple commandStack entries and do validation for the same value
     if (newValue !== value) {
-      setValue(newValue, newValidationError);
-    }
+      let newValidationError = null;
 
-    setValidationError(newValidationError);
-  }, [ element ]);
+      if (isFunction(validate)) {
+        newValidationError = validate(newValue) || null;
+      }
+
+      setValue(newValue, newValidationError);
+      setValidationDiagnostic(newValidationError);
+    }
+  });
 
   const onError = useCallback(err => {
-    setLocalError(err);
+    setLintDiagnostic(err);
   }, []);
 
-  const temporaryError = useError(id);
+  const diagnostics = useDiagnostics(id);
 
-  const error = temporaryError || localError || validationError;
+  // most severe wins, externally provided diagnostics win ties
+  const diagnostic = getMostSevere([ ...diagnostics, lintDiagnostic, validationDiagnostic ]);
 
   return (
     <div
       class={ classnames(
         props.class,
         'bio-properties-panel-entry',
-        error ? 'has-error' : '')
+        getDiagnosticClass(diagnostic))
       }
       data-entry-id={ id }>
       <FeelTextfield
@@ -649,12 +754,13 @@ export default function FeelEntry(props) {
         hostLanguage={ hostLanguage }
         singleLine={ singleLine }
         show={ show }
+        translate={ translate }
         value={ value }
         variables={ variables }
         tooltipContainer={ tooltipContainer }
         OptionalComponent={ props.OptionalComponent }
         tooltip={ tooltip } />
-      {error && <div class="bio-properties-panel-error">{error}</div>}
+      <DiagnosticMessage diagnostic={ diagnostic } forId={ id } element={ element } />
       <Description forId={ id } element={ element } value={ description } />
     </div>
   );
@@ -675,7 +781,7 @@ export default function FeelEntry(props) {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -698,7 +804,7 @@ export function FeelNumberEntry(props) {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -722,7 +828,7 @@ export function FeelTextAreaEntry(props) {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -745,7 +851,7 @@ export function FeelToggleSwitchEntry(props) {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -770,7 +876,7 @@ export function FeelCheckboxEntry(props) {
  * @param {Function} props.getValue
  * @param {Function} props.setValue
  * @param {Function} props.tooltipContainer
- * @param {Function} props.validate
+ * @param {import('../../util/diagnostics').ValidateFunction} props.validate
  * @param {Function} props.show
  * @param {Function} props.example
  * @param {Array} props.variables
@@ -800,43 +906,69 @@ function prefixId(id) {
   return `bio-properties-panel-${id}`;
 }
 
-function calculatePopupPosition(element) {
-  const { top, left } = element.getBoundingClientRect();
-
-  return {
-    left: left - FEEL_POPUP_WIDTH - 20,
-    top: top
-  };
+/**
+ * Determine if FEEL is optional for the configured {@link FeelType}.
+ *
+ * @param {FeelType} feelType
+ *
+ * @return {boolean}
+ */
+function isFeelOptional(feelType) {
+  return feelType === 'optional' || feelType === 'optional-default-enabled';
 }
 
-// todo(pinussilvestrus): make this configurable in the future
-function getPopupTitle(element, label) {
-  let popupTitle = '';
+/**
+ * Determine if FEEL editing is currently active.
+ *
+ * @param {FeelType} feelType
+ * @param {string} localValue
+ *
+ * @return {boolean}
+ */
+function isFeelActive(feelType, localValue) {
 
-  if (element && element.type) {
-    popupTitle = `${element.type} / `;
+  if (feelType === 'required') {
+    return true;
   }
 
-  return `${popupTitle}${label}`;
+  if (isString(localValue)) {
+    if (localValue.startsWith('=')) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
+/**
+ * @template T
+ * @param {T} value
+ *
+ * @return {string|T}
+ */
+function getFeelValue(value) {
+  if (isString(value) && value.startsWith('=')) {
+    return value.substring(1);
+  }
 
-function withAutoClosePopup(Component) {
-  return function(props) {
-    const { id } = props;
-    const {
-      close
-    } = useContext(FeelPopupContext);
-
-    const closePopup = useStaticCallback(close);
-
-    useEffect(() => {
-      return () => {
-        closePopup({ id });
-      };
-    }, []);
-
-    return <Component { ...props } />;
-  };
+  return value;
 }
 
+/**
+ * Initialize local FEEL value.
+ *
+ * `optional-default-enabled` starts in FEEL mode if no value or empty string is provided.
+ *
+ * @template T
+ * @param {FeelType} feelType
+ * @param {T} value
+ *
+ * @return {string|T}
+ */
+function getInitialFeelLocalValue(feelType, value) {
+  if (feelType === 'optional-default-enabled' && (value === undefined || value === '')) {
+    return '=';
+  }
+
+  return value;
+}
